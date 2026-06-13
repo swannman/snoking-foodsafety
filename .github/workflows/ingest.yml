@@ -1,0 +1,41 @@
+name: Refresh inspection data
+on:
+  schedule:
+    - cron: "30 11 * * 1"        # weekly, Mondays 11:30 UTC (~03:30/04:30 PT) — full King + Snohomish refresh
+  workflow_dispatch:
+    inputs:
+      king_only:
+        description: "King County only (fast — skips the slow Snohomish crawl)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      # persist the Census geocode + Snohomish program caches between runs so the
+      # crawl/geocoding doesn't start cold every time
+      - name: Restore caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ingest/geocache.json
+            ingest/programs.json
+          key: ingest-caches-${{ github.run_id }}
+          restore-keys: ingest-caches-
+      - name: Run ingester
+        working-directory: ingest
+        env:
+          WORKER_URL: https://snoking-foodsafety.3lemenopy.workers.dev
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          GOOGLE_KEY: ${{ secrets.GOOGLE_KEY }}
+        run: node ingest.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.king_only) && '--king-only' || '' }}

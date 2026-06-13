@@ -114,7 +114,7 @@ async function arcAll(layer, outFields, where = "1=1", label = "", geom = false)
 // Socrata-derived on first run), keyed by name+address with a street-number fallback.
 async function harvestKing() {
   try {
-    const j = await getJson(WORKER_URL + "/api/establishments");
+    const j = await getJson(WORKER_URL + "/api/establishments?nocache=" + Date.now());   // bypass edge cache — must read CURRENT cuisines/ages
     const exact = new Map(), byNum = new Map(), dup = new Set();
     for (const it of j.items || []) {
       if (it.co !== "k") continue;
