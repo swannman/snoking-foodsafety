@@ -1,0 +1,9 @@
+node_modules/
+.wrangler/
+ingest/config.json
+ingest/geocache.json
+ingest/data.json
+.DS_Store
+ingest/programs.json
+ingest/bloopers.json
+ingest/*.log

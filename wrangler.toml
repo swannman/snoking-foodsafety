@@ -1,0 +1,17 @@
+name = "snoking-foodsafety"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+account_id = "e586791371224fd8a71725fce7f6f1a6"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "snoking-foodsafety"
+database_id = "5c5ffdec-a164-4c51-862e-86b61171a9a2"
+
+[[kv_namespaces]]
+binding = "REGIONS"
+id = "32eb27b3de934723a82c747e0b5d4dd7"

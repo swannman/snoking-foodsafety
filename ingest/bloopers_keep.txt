@@ -1,0 +1,764 @@
+# Curated funny bloopers — auditable keep-list (sidecar for bloopers_keep.json)
+# 190 entries. The ingester matches on the IDs in bloopers_keep.json;
+# this file is the human-readable record of WHY each ID is kept. Regenerate with:
+#   curl .../api/bloopers | (this script)
+
+FA0021234:7021ec5a-c444-4b46-8826-b22d00d60fd2
+    🧼 BOWLBA (ARLINGTON) — 06 - Adequate handwashing facilities
+    “Observed no soap at one handwashing sink. Found blender cleaner hooked up to faucet in hand sink.”
+
+FA0002083:9f11d60e-1d03-4182-8460-b0d000cfd637
+    🔍 BURGER KING #12332 (ARLINGTON) — 01 - PIC present, demonstrates knowledge and performs duties to maintain AMC. Certified manager on staff
+    “1) During this inspection, it has been determined that there is a lack of active managerial control due to: [x] high number of red critical violations [x] pervasive lack of oversight throughout facility regarding: unable to determine who is in charge, unable to locate any paperwork needed regarding food worker cards, certified food protection manager, vomit/diarrhea clean up plan, and the restrict”
+
+FA0002008:45fb2e0a-c403-463a-8e18-b05100bdf34d
+    🦟 BUZZ INN SPORTS BAR & STEAKHOUSE (ARLINGTON) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “An employee was observed placing their personal beverage on the cutting board they were using to prepare food.”
+
+FA0000210:691f807b-5dbe-437d-a175-b02d00d2b7c6
+    🦟 CAMP KALSMAN (ARLINGTON) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observed 3 incidents where employees were eating in food prep areas. One time was after I spoke with employees eating in the kitchen food prep area and speaking with the PIC. Observed an open cup with ice and red beverage in the food prep area.”
+
+FA0001128:c194a098-3870-4573-9c69-b3e200dc96ce
+    🔍 DENNY'S RESTAURANT #6351 (ARLINGTON) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “PIC was unable to locate plan or kit for the vomit and diarrhea clean up plan.”
+
+FA0001128:9ef16995-dbda-4ca7-9ef9-b3a600f46354
+    🔍 DENNY'S RESTAURANT #6351 (ARLINGTON) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “Employee could not locate the vomit/diarrhea clean up plan for this facility. Previous inspections facility had a kit and written directions but we are not sure if it was used or misplaced.”
+
+FA0005744:0bcd09b7-3923-4663-8be9-b24b00be771f
+    🤮 GYRO STOP (ARLINGTON) — 19 - No room temperature storage; proper use of time as a control
+    “A pan of shaved gyro meat was observed on the counter next to the cooking spit and measured 72F. This meat had been shaved from the outside of the rotating meat approximately an hour prior right when the store opened.”
+
+FA0002206:94681eda-0579-4ff1-b291-b36a0117d7b7
+    🔍 HAMMER COFFEE CO (ARLINGTON) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “Employee was unable to locate the vomit/diarrhea clean up plan for this facility.”
+
+FA0001576:4a8a926c-cad2-4381-99ed-b17600bca796
+    🅿️ JAMESTOWN SALOON (ARLINGTON) — 07 - Food obtained from approved source
+    “Facility is allowing an unpermitted food service to serve hot foods on weekends in parking lot/back lot after taking money from the public.”
+
+FA0001095:86d08823-326d-4983-8d6c-b17e00ddd483
+    🐭 KROSSWALK PUB & PIZZA (ARLINGTON) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed 3 live ants on the bar counter of establishment. No open food is in this establishment that is not in refrigeration and food in freezer is all closed. Employee stated there are ant traps in place.”
+
+FA0002710:51321faf-cae8-4278-ae7f-b0fc00f35151
+    ✋ MIRKWOOD & SHIRE CAFE (ARLINGTON) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observed cook making a wrap with bare hands. Kitchen was out of gloves at time of inspection.”
+
+FA0001539:dff4948f-cd07-42f3-96bc-b0ed00f166b1
+    📦 PARAISO MEXICAN RESTAURANT (ARLINGTON) — 48 - Physical facilities properly installed, maintained, cleaned; unnecessary persons excluded
+    “The ceiling above the cook line was observed blackened with loose dust, and the ceiling has been patched with loose cardboard that has also become dirty. This is a repeat violation.”
+
+FA0000279:3d63503f-f228-436e-bee3-b1ef00c9ce7b
+    🚽 PRESIDENTS ELEMENTARY (ARLINGTON) — 48 - Physical facilities properly installed, maintained, cleaned; unnecessary persons excluded
+    “Observed a hole in the wall behind the sink in the bathroom that is used by the kitchen staff.”
+
+FA0002233:d56b5d25-a107-418d-ba6d-b29200e3129b
+    ✋ THE SPECKLED COW (ARLINGTON) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observed employees handling ready to eat food (bagels) without gloves. Employees stated there are no gloves provided in this facility for them to use.”
+
+FA0001965:edbcd999-014b-452a-9492-b09700f735e0
+    🐭 UR FANTASY ESPRESSO (ARLINGTON) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Hanging fly paper was observed full of dead insects.”
+
+FA0006395:6b6bcc60-ab44-420a-a724-b0ed00bbf9b1
+    🚬 BANGKOK CRISPS: THAI MARKET (BOTHELL) — 27 - Compliance with variance/specialized process/HACCP plan
+    “Observation: During the time of inspection it was observed that jerky that was made in house was being stored at room temperature. This establishment is not approved for this special process and must be stopped immediately. The jerky on display has had a hold order placed on it.”
+
+FA0005102:e008f9fc-c6e2-4cbe-9174-b1f100dd8afc
+    📦 BIG FISH SUSHI RESTAURANT (BOTHELL) — 14 - Raw meats below or away from ready-to-eat food; species separated
+    “In the back kitchen ,near to the walk-in freezer, observed several packages of gyoza (in a cardboard box) stored directly on a box of raw chicken.”
+
+FA0001527:de725bf8-8c3b-4737-ab84-b32a00bbefd6
+    🤷 BIRYANI BISTRO (BOTHELL) — 01 - PIC present, demonstrates knowledge and performs duties to maintain AMC. Certified manager on staff
+    “Observation: Staff did not know if owners obtained this certificate”
+
+FA0003543:abe42bcb-4ac1-40b0-973e-b33900e7f9ac
+    🐭 BIRYANI DISTRICT (BOTHELL) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observation: At time of inspection several cockroaches were spotted in the facility. The cockroaches were located on the base of a hand wash sink, near a dry storage rack and on a food container lid for dry goods. Ants were also located in the sugar on the dry goods rack.”
+
+FA0001059:f1dc0441-7ed0-4168-962f-b0fa00dd1c4f
+    🦟 CHINA GARDEN (BOTHELL) — 06 - Adequate handwashing facilities
+    “Observed a food service employee was rinsing packages of tofu in the kitchen hand washing sink.”
+
+FA0007960:b3ab8284-64ac-4752-9e9f-b26500dcde0f
+    📦 CHIPOTLE MEXICAN GRILL (BOTHELL) — 14 - Raw meats below or away from ready-to-eat food; species separated
+    “In the walk-in cooler, observed a cardboard box of whole peppers stored on top of a box of raw chicken and also observed several boxes of whole romaine lettuce stored right next to several boxes of raw chicken, boxes touching each other.”
+
+FA0000505:e517446c-f6b6-4a8b-b7f2-b0a80085e197
+    🐭 COMFORT INN & SUITES (BOTHELL) — 25 - Toxic substances properly identified, stored, used
+    “Observed unapproved insect killer pesticide (Raid) in the establishment, underneath of the kitchen sink. Per label, it is for residential use only.”
+
+FA0001038:f120b6f5-c825-4d8a-83b3-b347009e4857
+    🐭 INCHIN'S BAMBOO GARDEN - BOTHELL (BOTHELL) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed several fruit flies flying around in the bar as well as in the men's restroom.”
+
+FA0002851:15a74092-6d84-4f13-98c3-b12a00f9497c
+    🪣 MIDORI TERIYAKI (BOTHELL) — 30 - Proper thawing methods used
+    “In the prep area on the floor, near to the food prep sinks, observed three 5 gallon buckets of raw chicken improperly thawing. Also observed raw chicken left in the food prep sinks, not under running water. Raw chicken internal temperature was measured between 22-34 F”
+
+FA0002378:249d7b69-3959-4900-823f-b1f800957d4e
+    🤔 PATTY'S EGGNEST (BOTHELL) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “Observation: Milk located in the walk-in fridge was observed not containing a date mark of when the product was open. Staff thought it was today or yesterday.”
+
+FA0002092:303c6a94-816d-44ca-8046-b1e200ef8a42
+    🐭 PHO BOTHELL (BOTHELL) — 25 - Toxic substances properly identified, stored, used
+    “Observed unapproved insect killer pesticide (Raid) in the establishment, at the chemical storage back kitchen.”
+
+FA0001364:ad6cef21-1ecd-4412-8fc2-b17100e4dc5d
+    🐭 RAMA HOUSE (BOTHELL) — 25 - Toxic substances properly identified, stored, used
+    “Observed unapproved insect killer pesticide (Raid) in the establishment, underneath of the dishwasher.”
+
+FA0002188:39d91155-c426-4cb7-b03b-b15600f8b07f
+    🐭 SUNNY TERIYAKI (BOTHELL) — 25 - Toxic substances properly identified, stored, used
+    “Observed unapproved insect killer pesticide (Raid) in the establishment, on the bottom shelf, near to the back exit door; its label states “For Indoor Residential Use Only"”
+
+FA0003500:ba5ed2bc-71b3-44e2-a4eb-b32f00d25e8d
+    🦟 TERIYAKI & PHO (BOTHELL) — 01 - PIC present, demonstrates knowledge and performs duties to maintain AMC. Certified manager on staff
+    “An individual who is responsible for the operation during the time of inspection could not be identified.”
+
+FA0002302:367e815f-7c6c-4186-bd47-b059011fe724
+    🤧 WASABI BAY (BOTHELL) — 04 - Hands washed as required
+    “Observed staff wipe their face with a tissue and then touch the cutting board with the tissue. Then continued to prepare food.”
+
+FA0001485:8439c8cd-fd5c-4f4d-ba0c-b356007e3190
+    🐭 BRIER PIZZA KITCHEN (BRIER) — 25 - Toxic substances properly identified, stored, used
+    “Canister of Raid observed in kitchen, stored on shelf above floor stand mixer. Two canisters of grill cleaners observed stored on shelf above main prep line of cook line.”
+
+FA0003266:bf2e23b6-7abc-482d-81ed-b26000e2f297
+    🪣 COMMON GROUND COFFEE (DARRINGTON) — 08 - Water supply, ice from approved source
+    “Observed water that is plumbed from a well as the source but no septic system hook up. Water is collected in 5 gallon buckets to be taken to the commissary.”
+
+FA0001072:d5005039-c006-439b-b196-b1f100d0df5f
+    🚪 5 CORNERS TERIYAKI (EDMONDS) — 19 - No room temperature storage; proper use of time as a control
+    “Observed counter top storage of: bucket 1 raw chicken 55 F, bucket 2 raw chicken 57 F, bucket 3 raw chicken 56 F, bucket 4 raw chicken 55 F, and a strainer containing raw chicken 55 F. Also observed 2 buckets of raw chicken in the dry storage closet: raw chicken bucket 1 55 F, raw chicken bucket 2 54 F. The buckets on the counter had been out for 5 hours while the cook prepped them when they had t”
+
+FA0003582:9dcf10a0-2393-403a-8717-b43d00e06378
+    ✋ BOILING POINT - EDMONDS (EDMONDS) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observed a server carrying 4 cups full of ice in a way that their fingers were inside of the cups in direct contact with the ice.”
+
+FA0006481:57fc3c1d-c797-4b55-a87e-b07a00ff6640
+    🐾 BRIGIDS BOTTLESHOP (EDMONDS) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a pet present in the establishment. Per the person in charge they do not ask if animals brought into the establishment are service animals.”
+
+FA0001207:9b78f418-4ab6-456e-950e-b2c200da4751
+    💅 CASA OAXACA (EDMONDS) — 04 - Hands washed as required
+    “Observed an employee crack raw shelled eggs with gloved hands then attempt to work with donuts after they were pulled from the fryer without removing the gloves or washing their hands.”
+
+FA0001285:739e0077-240d-45ee-a087-b40b00df8fc2
+    🚿 HOSOONYI KOREAN RESTAURANT (EDMONDS) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “Observed a garden hose in use at the prep sink in the back prep area. Observed the prep sinks in the kitchen with rubber gloves banded to the spicket to prevent splash.”
+
+FA0002194:9ce8ee35-b37d-4e8d-83bb-b1ef01058e89
+    📦 MVP'S (EDMONDS) — 06 - Adequate handwashing facilities
+    “Observed the handwashing sink in the kitchen blocked by cardboard boxes and a step stool ladder. Observed the handwashing sink in the bar with the basin full of lotions and miscellaneous products, this sink was out of service due to a leak.”
+
+FA0001873:d57a47fd-7026-4aa5-8e69-b36400d7f83d
+    🦟 OFF MAIN (EDMONDS) — 06 - Adequate handwashing facilities
+    “Observed an employee wash their hands at the mop sink.”
+
+FA0002510:fe597cad-9cb7-4617-b34b-b3fa00d58040
+    💅 PHO CORNER (EDMONDS) — 04 - Hands washed as required
+    “Observed an employee handle a paper that had separated portions of raw beef with gloved hands. The employee attempted to rinse their gloved hands at the handwashing sink then continue to prepare an order. When instructed to remove the gloves and fully wash their hands the employee attempted to wash their hands without using soap.”
+
+FA0002516:eccd3276-a8e3-4eaf-b46b-b26400c7b0d1
+    🐭 RED TWIG (EDMONDS) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a speed rack propping the door open to the outdoor walk in refrigerator. This speed rack was holding recently prepared products such as opened salads and cooked squash (actively cooling).”
+
+FA0001809:85467534-2835-48eb-8090-b22900e05dee
+    🚽 ROCKET #5927 (EDMONDS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Observed alcoholic beverages stored in the bathroom. Observed several boxes of beverages stored directly on the floor such as sodas and energy drinks.”
+
+FA0002459:e847f31a-97d3-4f54-ad94-b18700e3b46b
+    🩹 T & T SEAFOOD RESTAURANT (EDMONDS) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “1. Plastic shopping bags were observed being used to hold ready-to-eat cooked meats and various non-time/temperature control for safety foods. Additionally, cardboard sheets were observed being used to line shelves in coolers, with cooked ducks stored on top. Grease and moisture were observed soaked into these cardboard sheets.”
+
+FA0002459:b27482d8-2ca2-49c2-b30a-b02a00fc9966
+    🪳 T & T SEAFOOD RESTAURANT (EDMONDS) — 04 - Hands washed as required
+    “Food worker at Dim Sum Cook line observed swatting a live cockroach tossing on floor and continuing working without washing hands and replacing gloves.”
+
+FA0002459:8ecbc464-e318-45e4-a3b9-b02a00fc9854
+    🐭 T & T SEAFOOD RESTAURANT (EDMONDS) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed live multi-generational german cockroaches in multiple areas of facility including live cockroach on food prep table. Active infestation with live cockroaches emerging from wall observed where clean Dim Sum containers stored before use, at Dim Sum Cook line, and at Main Kitchen Cook line. Dead cockroaches observed throughout the facility including on top of food storage and in utensil sto”
+
+FA0001316:88034bca-fd72-4031-b3c1-b1f400dca5c0
+    ✋ THAI COTTAGE (EDMONDS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Observed 2 pens stored in the peanuts that are used to top the pad thai.”
+
+FA0001496:39b7cddf-9fd4-41ff-ab77-b38000da8a1b
+    🦟 THAI WISDOM EDMONDS (EDMONDS) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observed an employee consuming a muffin and an open beverage on the cutting board of the 2 door prep top refrigerator.”
+
+FA0003268:46b66bdd-4fae-49cf-93d2-b11200e367a6
+    ✋ THE CHURCH KEY PUB (EDMONDS) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observed an employee garnishing a drink with olives. The employee touched an olive with their bare hands to push it into the bin containing the product that was intended for customers.”
+
+FA0002125:2ec97415-043b-4b16-8bd4-b33900c54488
+    💅 TRADITIONAL KOREAN BEEF SOUP (EDMONDS) — 04 - Hands washed as required
+    “Observed an employee crack a raw shelled egg, attempt to wash their hands without the use of soap, then attempt to continue working with in use utensils.”
+
+FA0002694:a50c4bce-7b4c-428b-8d27-b34c010161d9
+    🐕 WALNUT STREET COFFEE (EDMONDS) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a dog enter the food establishment with a customer and jump so their front paws were on the service counter.”
+
+FA0002425:fa3a501d-4e99-4a15-8d71-b2e400c02629
+    ✋ WONTON NOODLE HOUSE (EDMONDS) — 04 - Hands washed as required
+    “Observed an employee handle their phone with gloved hands then attempt to begin cooking an order without removing the gloves or washing their hands.”
+
+FA0002695:4d58a1de-1472-42ba-a05e-b0cb00dc5179
+    🐭 ALIBERTOS JR FRESH MEXICAN FOOD (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observation: Rodent droppings present underneath beverage cooler which contain standing water in area. Code Reference:”
+
+FA0002928:7c3aa2ff-fc21-4e90-b478-b3b500d390c9
+    🚽 BIGFOOT JAVA (EVERETT) — 04 - Hands washed as required
+    “Observed food worker leave restroom and then proceed to coffee bar to prep orders.”
+
+FA0002724:4d7215bb-428c-4e68-b5fc-b1be00f0add8
+    🐭 BILLIE ON GOURMET BURGER & FISH CHIPS (EVERETT) — 25 - Toxic substances properly identified, stored, used
+    “Observed multiple spray cans of Raid Defense Ant & Roach in the kitchen.”
+
+FA0007404:70d9bf18-f36f-402b-b013-b04a00c67514
+    🤔 BIRRIERIA TIJUANA Y MARISCOS (EVERETT) — 21 - Proper cold holding temperatures (5 points if 42F to 45F)
+    “Left three door prep cooler on cook line is not plugged in. It is thought that it came unplugged last night after closing and while cleaning. All foods in the cooler were in the cooler overnight. Observed temperatures - 3 Dr Prep Cooler (L), tower - ceviche 61F/octopus 59F/cooked shrimp 61F/other food item 59F; reach-in below - liquid egg 55F.”
+
+FA0002584:b0d0aedb-0d8d-4a9d-9802-b22800cca747
+    🚽 BOX CAFE (EVERETT) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Observed lotus bottles stored in the restroom.”
+
+FA0002831:7ab9fa35-3c23-4bdb-b20d-b28300bb658b
+    🔍 BROOKLYN BROS PIZZERIA INC (EVERETT) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “The establishment could not find the vomit and diarrhea cleanup procedures.”
+
+FA0001019:27b0b622-f96a-4d87-8616-b3c40091e13a
+    🦟 BUZZ INN STEAKHOUSE (EVERETT) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observation: A cup of tea was located on cutting board”
+
+FA0003186:0970f794-195e-4518-9f9f-b13700f4f788
+    🐭 CHOP 1 (EVERETT) — 25 - Toxic substances properly identified, stored, used
+    “Observed two Raid Ant & Roach pesticide spray cans on a shelf by the register.”
+
+FA0016441:47ec1690-8d0f-4aa6-b167-b22100f18766
+    🐭 EL POLLONAZO (MOBILE TRUCK) (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed several flys in the truck. Observed a mouse on the outside of the truck.”
+
+FA0003668:3efe6874-c65d-447e-82ba-b1550114d2ad
+    🚽 FIREHOUSE SUBS (EVERETT) — 04 - Hands washed as required
+    “Observed food worker return to work behind the counter and put on gloves without first washing hands. Food worker disclosed that their hands had been washed in the restroom. *Wash hands before putting on gloves. Also there is a double hand washing policy. Wash hands in the restroom and then wash hands when returning to the kitchen.”
+
+FA0002166:137d1ee8-1c76-40b7-ada0-b02200e6dc64
+    🪳 HAWAIIAN SUN BBQ (EVERETT) — 25 - Toxic substances properly identified, stored, used
+    “Two canisters of Raid Ant and Roach found in back prep/ware washing room below the sinks. *Raid is not approved for use in commercial food service establishments; canisters are labeled for residential indoor use only.”
+
+FA0001640:c8408d6a-39b1-4039-b644-b10f010451da
+    🗑️ IMRANS MARKET II (EVERETT) — 47 - Garbage, refuse properly disposed; facilities maintained
+    “Dumpster lid found open upon arrival at establishment with no on actively using it. Discarded foods observed atop very full dumpster. *Keep dumpster lids closed if not actively using. **Violation corrected. Dumpster lid closed.”
+
+FA0001762:5a583144-1014-4467-933c-b38500f713e4
+    🪣 JANBO CAFE (EVERETT) — 19 - No room temperature storage; proper use of time as a control
+    “At onset of inspection four large packages of raw pork observed in basin of left food preparation sink. No one observed actively working with the pork for over an hour. A small amount of ice observed spread atop some of the raw pork. Internal temperatures of the raw pork observed at 52F. Raw shrimp observed sitting out at room temperature with no one actively working with the shrimp. A small amoun”
+
+FA0001762:79aaecec-e245-4f75-8f71-b05a00ba1240
+    ✋ JANBO CAFE (EVERETT) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Observed food worker use bare hands to drag water bottle through ice machine to fill water bottle with ice.”
+
+FA0003505:98d6d899-56b6-4aa4-89d0-b2ca00c21a27
+    🐭 KATANA SUSHI (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “A complaint was received of rate feces in the kitchen. Rat feces was found in several locations in the kitchen.”
+
+FA0003395:8307b38a-aec6-4c64-8cf0-b05900fb1968
+    📦 KING NOODLE (EVERETT) — 13 - Food contact surfaces cleaned and sanitized; no cross contamination
+    “Cooked and cooling fried sides of pork in walk-in cooler observed stored in covered card board box which previously contained raw duck. Exterior of cardboard box has instructions for the safe handling of raw proteins.”
+
+FA0003395:340ca600-6efa-4e06-af5d-b05900fb190d
+    📦 KING NOODLE (EVERETT) — 16 - Proper cooling procedures
+    “Cooked sides of pork in walk-in cooler observed stored in enclosed cardboard box labeled as previously containing raw duck. Internal temperature of the pork observed at 47F. Per person-in-charge the pork was pick-up as observed yesterday in Seattle, transported to the restaurant and placed as observed in the walk-in cooler. The pork had just been cooked at time of pickup.”
+
+FA0003685:b448acf5-8ec6-4533-a8a9-b22f00faa373
+    🪳 LA COSTA TAQUERIA #2 (EVERETT) — 25 - Toxic substances properly identified, stored, used
+    “Two large plastic containers of Ortho Home Defense insect killer and one canister of Raid ant and roach in back kitchen.”
+
+FA0003685:937b6a27-7d48-4f66-8a14-b22f00faa3ac
+    🐭 LA COSTA TAQUERIA #2 (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Two cockroaches observed in facility; one at back kitchen hand wash sink and one observed running across the laminate floor from the freezer to dry storage.”
+
+FA0002505:df836b25-82b6-4a40-8b96-b19b00d1c125
+    📱 LE’S PHO RESTAURANT (EVERETT) — 04 - Hands washed as required
+    “Observed a worker on their phone and then they put the phone down and changed gloves without washing their hands. Observed a worker blow into their gloves before putting them on.”
+
+FA0003106:074c2b90-9ee2-4d61-9a10-b2a401113baa
+    📦 LUCKY MART (EVERETT) — 06 - Adequate handwashing facilities
+    “Hand wash sink in restroom is not accessible; mop bucket blocks access to hand wash sink and a cardboard box is atop the basin of the hand wash sink.”
+
+FA0001097:6ac47a65-1363-449f-b569-b40500e1f50f
+    🐭 OISHI TERIYAKI (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “In the storage area/room there is rat feces on the ground.”
+
+FA0002736:5dffa383-fc14-44ec-8861-b2de010cf759
+    🚽 PANDA EXPRESS #1291 (EVERETT) — 04 - Hands washed as required
+    “Upon entering the establishment, observed staff sweeping the floor by the windows. Then she touched the lids at the the soda station and then subsequently went into the restroom. Later when questioning employee about hand washing, she reported that she dipped her hands in the sanitizer solution (stored beneath the soda station) after sweeping the floors and before touching the lids. She also repor”
+
+FA0022332:605167c8-4455-4e93-92a1-b3aa00d55566
+    📱 PARIS BANH MI (EVERETT) — 04 - Hands washed as required
+    “Observed food worker with gloved hands talking on cell phone. After finishing up cell phone call food worker then proceeded into the walk-in cooler without first removing gloves and washing hands.”
+
+FA0001660:6cce175c-8469-4232-a13d-b30800e56507
+    ✋ PHO SMILE (EVERETT) — 04 - Hands washed as required
+    “At onset of inspection person-in-charge is gloved with unrestrained long hair. Person-in-charge grabs hat and puts on hat. Person-in-charge is instructed to remove gloves and wash hands. Observe person-in-charge remove gloves, pick-up and discard empty raw meat wrapper with bare hands and then rinse hands under running water, no soap used.”
+
+FA0001618:ddfe9140-3e7c-4aa4-9b66-b45800d1a44f
+    🦟 PHO TO LIEM (EVERETT) — 06 - Adequate handwashing facilities
+    “1. At the kitchen handwash sink, the paper towel dispenser was not functioning at the start of the inspection.”
+
+FA0001618:bd89c1ae-230f-440b-a6b3-b13a00a39d03
+    🔍 PHO TO LIEM (EVERETT) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “The establishment person-in-charge could not locate a written cleanup procedure for vomit and diarrhea.”
+
+FA0001756:af8b6bff-0fa1-4db1-909e-b28300f650da
+    🐭 TAMPICO MEXICAN RESTAURANT (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “In the basement stock room, an enclosed shelf near the floor was observed containing a live mouse trap and numerous apparent rodent droppings.”
+
+FA0002783:d353628a-4157-400d-b255-b35c00fbe748
+    🐭 TAQUERIA EL RINCONSITO (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Continued presence of flying insects observed in back storage closet flying around and lining the walls. Same insects also observed just outside the closet space. Foods and food contact surfaces are covered. **Contact your pest control operator to address the flying insects on site.”
+
+FA0002783:f617197c-0fac-49d1-a176-b08201006d6b
+    🪣 TAQUERIA EL RINCONSITO (EVERETT) — 06 - Adequate handwashing facilities
+    “At onset of inspection multiple round plastic lids (five gallon bucket lids) observed in basin of back hand wash sink.”
+
+FA0002887:1adeb14a-f9c4-44da-9465-b42000c5c9e0
+    🐭 TAQUERIA LA TAPATIA #2 (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Mobile vehicle is not tight to pest entrance. The back door window is broken with duct tape and plastic in place. Windows are taped around the edges with visible gaps. The back door does not fully close. Gaps and daylight around exterior doors.”
+
+FA0002894:a529d6c8-a770-4105-8f2b-b15700cb796b
+    🐭 TERRACOTTA RED MODERN ASIAN BISTRO (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a dead rat in a trap near the entrance to the upper storage floors.”
+
+FA0002745:28bb5356-6160-48a5-bb91-b1bd00f6fe41
+    🐭 THAI VALLEY (EVERETT) — 25 - Toxic substances properly identified, stored, used
+    “Raid Max spray, Raid Ant & Roach spray and Black Flag Roach Motel were observed in the dry storage room.”
+
+FA0002745:860608fa-8f43-4e04-a8d0-b1bd00f6fd83
+    🐭 THAI VALLEY (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a live roach during the inspection.”
+
+FA0002698:1802a1a2-2e94-4738-bd02-b44b00d3906f
+    🐭 TOKYO TERIYAKI & WOK (EVERETT) — 25 - Toxic substances properly identified, stored, used
+    “An unapproved insect killing pesticide (Raid) was observed stored underneath the front counter.”
+
+FA0002698:1114bcad-1286-4320-a1f8-b44b00d3907d
+    🐭 TOKYO TERIYAKI & WOK (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “A dead cockroach was observed stuck on the wall beneath the three compartment sink, and a live cockroach was observed roaming near the water heater tank.”
+
+FA0002698:fcb8331b-2bf2-444f-a87a-b1a100f46c50
+    🐭 TOKYO TERIYAKI & WOK (EVERETT) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed dead and live roaches during today's inspection. Operator has a one-time spray with commercial pest control company on 7/5/24. Be sure to send a copy of the invoice to your inspector.”
+
+FA0001930:d3731ed2-e6c0-4db5-9658-b35300cfcc96
+    🩹 V STAR INC (EVERETT) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “Observation: A plastic tub used to hold the broccoli had duct tape being used to hold the equipment together Several metal shelved had cardboard pieces placed on top in order to absorb any spillage. These were located near the grill and oven One leg on the dishwasher table was short and required a block of wood to be placed underneath to keep it level.”
+
+FA0001042:ef4773cc-da90-455e-a27f-b0d200a9c200
+    🚗 WASHINGTON BURRITO (EVERETT) — 09 - Proper washing of fruits and vegetables
+    “Observed food worker pulling wet tomatoes from cardboard box that they were received in and dicing them into a storage container as prepped tomatoes. Per person-in-charge tomatoes were rinsed in the cardboard box that they were received in with the water rinsing over them in the cardboard box in which they were received.”
+
+FA0003197:6e6362d2-9039-4109-b380-b3aa00ec1ecf
+    🦟 WHITE LOTUS RESTAURANT (EVERETT) — 19 - No room temperature storage; proper use of time as a control
+    “From top to bottom stacked outside back door atop five gallon container; two plastic containers of rice (95F, 95F - with top container uncovered and double stacked into container below of rice) atop a covered stainless container of cooked pork (61F) double stacked into an uncovered stainless container of cooked chicken (70F).”
+
+FA0003197:a9d32f8d-cb9e-4d89-af60-b2b900be6af3
+    📦 WHITE LOTUS RESTAURANT (EVERETT) — 19 - No room temperature storage; proper use of time as a control
+    “Fifteen dozen cardboard box of eggs observed sitting out at room temperature at back of kitchen. Per the person-in-charge the eggs were purchased this morning and have been sitting out for two hours.”
+
+FA0002748:c75f0178-ddb7-4d31-88f9-b3c300b8d59d
+    🤷 BUZZ INN STEAKHOUSE (GRANITE FALLS) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “Repeat violation. This is the third inspection in a row that unmarked containers of milk or half and half have been found in the wait station fridge. Two unmarked containers of half and half were found in the lower part of the prep cooler; one of the containers had no lid, but the opening was covered with tape. The milk was date-marked. Wait staff just returned from vacation today.”
+
+FA0002748:0c18525d-6b1c-4feb-9f80-b25000ad3f4f
+    🤷 BUZZ INN STEAKHOUSE (GRANITE FALLS) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “Repeat violation. 3 gallons of milk at the wait station prep fridge were undated, and the staff did not know when they had been opened.”
+
+FA0000278:56e957b9-f63c-4184-8267-b1cb00c9d153
+    🐈 HIDDEN VALLEY CAMP (GRANITE FALLS) — 06 - Adequate handwashing facilities
+    “Repeat violation. A hand wash station is required for areas of open food preparation. This includes the fire pit. An approval was given last year for a temporary hand wash station, which must include hot water in an insulated container with a free-flowing spigot, and a catch bucket for waste water, soap and paper towels. (A garbage can for the used paper towels, too.) The person in charge said a t”
+
+FA0000278:71cf2c56-d09a-4f7f-b893-b1cb00c9d0eb
+    🤷 HIDDEN VALLEY CAMP (GRANITE FALLS) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “A carton of milk and pans of cooled beef patties found in the walk-in cooler without date marking. The person in charge did not know how long the milk had been opened. The beef patties were prepared Saturday (4 days ago).”
+
+FA0002036:5f732bdf-e853-481f-acce-b42e00dc35ed
+    🏠 THAI HOUSE (GRANITE FALLS) — 22 - Accurate thermometer provided and used to evaluate temperature of TCS foods
+    “Repeat violation. There was no thermometer found. The person in charge said that the thermometer went home with the cook.”
+
+FA0002264:dcf5ad8b-d9b2-4f9e-a2f9-b43600c6eeb7
+    🤷 THE VILLAGE AT GRANITE FALLS (GRANITE FALLS) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “A gallon of milk in the blue fridge had no date marked on it. The person in charge did not know when it had been opened.”
+
+FA0001954:cf2a49ea-d251-4783-980a-b43d00fcb75a
+    🤷 BURGER KING #11098 (LAKE STEVENS) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “In the drink fridge, there was an open carton of soft whip cold foam with no date on it. The person in charge did not know when it had been opened.”
+
+FA0001060:72fd522a-34ed-4930-8f75-b16300e440df
+    🤷 CHOPSTICKS HOUSE (LAKE STEVENS) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “The opened container of half and half had no open or discard date on it, and the bar staff did not know how long the container had been opened.”
+
+FA0001060:ad0db934-ab2d-4ef7-a3b1-b16300e43fed
+    📦 CHOPSTICKS HOUSE (LAKE STEVENS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “This is the third inspection in a row. Cooked breaded chicken found in a cardboard box.”
+
+FA0006048:78ccb4e4-815d-416d-bcd2-b0de00eb33f9
+    🦟 FRANCISCO'S KITCHEN INC (LAKE STEVENS) — 14 - Raw meats below or away from ready-to-eat food; species separated
+    “Observed raw chicken stored over raw steak in the kitchen walk in freezer and raw bacon stored over oranges, limes, and carrots in the back walk in refrigerator.”
+
+FA0002338:823ee25f-9dcd-4180-acf1-b3bc00e8e3ed
+    🩹 IXTAPA (LAKE STEVENS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “At the drink station by the tortilla station, a container wrapped in duct tape storing strawberry sauce found stored in the soda ice bin. The ice is used in drinks.”
+
+FA0002387:53651020-db0a-476a-9938-b40900ecfc1d
+    🦟 LUCKY DRAGON RESTAURANT (LAKE STEVENS) — 09 - Proper washing of fruits and vegetables
+    “When asked which sink is used to wash vegetables, the person in charge said that the only vegetable washed is broccoli. In the walk-in cooler observed bags of green onion that say "wash before using".”
+
+FA0003043:3cce0f71-ea59-43f6-ae3c-b24b00e66ced
+    🚽 LUNDEEN COFFEE CO (LAKE STEVENS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Repeat violation. Noted boxes of soy milk on the floor of the bathroom.”
+
+FA0003043:ffed1a0d-f0cf-437b-ad26-b0df00cb09c7
+    🚽 LUNDEEN COFFEE CO (LAKE STEVENS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Observed soy milk and oat milk stored on the floor in the bathroom.”
+
+FA0002288:299f3eb1-bbe5-4113-b13c-b0e000d927f1
+    🦟 RAZZALS BAR & GRILL (LAKE STEVENS) — 09 - Proper washing of fruits and vegetables
+    “The kitchen staff was cutting the ends of lemons. The lemons had not been washed. The staff proceeded to rinse lemons in a colander in the 3-compartment dish wash sink.”
+
+FA0008900:8fa7e8ff-d374-4aa9-8e6b-b2c800fafc01
+    🚗 TAQUERIA LA MICHOACANA (LAKE STEVENS) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “Commissary log ends 4/2/25. The person in charge said the current one might be in the car.”
+
+FA0001763:f86a7353-3ac3-4f41-a78e-b3a700dad0cf
+    🚽 TERIYAKI DINER (LAKE STEVENS) — 38 - Utensils, equipment, linens properly stored, used, handled
+    “Repeat violation. Single serve containers found in a box on the floor of the employee bathroom. There is a cabinet in the bathroom that is approved for storing single serve containers.”
+
+FA0018683:4b3a2b4b-2c7f-43f6-a39c-b2aa00d3cebb
+    🦟 UNION COFFEE BAR @ TRESTLE STATION (LAKE STEVENS) — 01 - PIC present, demonstrates knowledge and performs duties to maintain AMC. Certified manager on staff
+    “There were worker illness forms available (Restriction and Notification of Ill Food Workers) but only two employees signed them. The person in charge said she thought the owner took other signed forms to an off-site office.”
+
+FA0018683:b231f7b8-43d3-437e-ba70-b14f00d73fc8
+    🚽 UNION COFFEE BAR @ TRESTLE STATION (LAKE STEVENS) — 33 - Potential food contamination prevented during delivery, preparation, storage, display
+    “Syrups and packaged oatmeal stored in the bathroom without a cover. Food is not allowed to be stored in the open in a toilet room. This establishment was given approval to store food in an enclosed storage cabinet.”
+
+FA0001835:94b9d69a-c85f-4c44-8a20-b0d101048755
+    🪳 9292  KOREAN BBQ (LYNNWOOD) — 25 - Toxic substances properly identified, stored, used
+    “Observed can of Raid Roach and Ant spray sitting on top of dishwasher in main kitchen area.”
+
+FA0002631:c921b455-2f07-4c7d-9654-b0ff00fa8222
+    🐭 CHIPOTLE MEXICAN GRILL (LYNNWOOD) — 47 - Garbage, refuse properly disposed; facilities maintained
+    “Outside receptacle/dumpster for Chipotle facility observed with large amount of debris (see photos) and trash on outside of dumpster. Trashcan, cardboard boxes, chair, and other loose items observed at open gates of dumpster. Harborage area for rodents, insects, exist at dumpster.”
+
+FA0002631:4f9e2121-848d-41be-a6e0-b06600db9ba2
+    🤷 CHIPOTLE MEXICAN GRILL (LYNNWOOD) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “Vomit/diarrhea cleanup plan not available for review at time of inspection. Plan is inside of a notebook, with a note on it, however document has not been filled out/completed. Upon inquiry with person in charge, they did not know how to complete the plan.”
+
+FA0001444:63554fa6-a773-4cdd-a9e5-b2c400f7d001
+    ✋ CREATIVE CONCEPTS LLC (LYNNWOOD) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observed an employee scoop ice with their thumb inside of the scoop so it came into contact with the ice intended for beverages.”
+
+FA0003499:b8a46da5-5731-4b71-85b8-b4100100dd93
+    📱 DOUGH ZONE (LYNNWOOD) — 04 - Hands washed as required
+    “At the onset of the inspection, observed staff on her cell phone with gloved hands through the pass through window. Upon entry into the kitchen, observed staff placed her cell phone in her pocket and continued to work without washing her hands.”
+
+FA0012765:52d3f370-b0e7-4a15-85b2-b2c901030cb5
+    🔍 FIL CUISINE (LYNNWOOD) — 22 - Accurate thermometer provided and used to evaluate temperature of TCS foods
+    “1. Observed food worker reheat half pieces of chicken without using a thermometer. When asked to take a temperature of the food, the food worker was unable to locate the thermometer. 2. When a food worker was asked to take a temperature of reheated thinly cut beef, a thermometer was not provided on the cook line. The food worker had to locate the thermometer.”
+
+FA0005038:a1113ea4-5393-4dbe-b72c-b09200fd8e72
+    💅 ISARN THAI SOUL KITCHEN (LYNNWOOD) — 04 - Hands washed as required
+    “1. Observed employee wipe face and/or arms at cook line and dish station without immediately washing hands. 2. Observed employee crack egg and continue to prepare dish without washing hands. 3. Observed employee wiping hands on clothing, back pocket, on shirt without washing hands 4. Observed employee wash hands for less than 10 seconds.”
+
+FA0005038:371452e5-ef61-4c21-b61c-b09200fd8f84
+    🐭 ISARN THAI SOUL KITCHEN (LYNNWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “1. Observed back door propped open before and during time of inspection. 2. Observed live cockroach at drink station.”
+
+FA0002525:023b5d3d-97af-442b-9bfb-b042009c4f36
+    🤷 LA QUINTA INN - LYNNWOOD (LYNNWOOD) — 01 - PIC present, demonstrates knowledge and performs duties to maintain AMC. Certified manager on staff
+    “There was not a person in charge present at facility at time of inspection. Therefore, proper procedures for TPHC for breakfast food items could not be verified. Person at front desk advised she did not know who was in charge, and food worker in kitchen advised that she was not a person in charge. An individual who is responsible for the operation during the time of inspection could not be identif”
+
+FA0001558:f65f9486-335b-47c4-acac-b42700ccc5a9
+    🐭 LYNNWOOD PHO (LYNNWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed live cockroaches near the hand washing sink.”
+
+FA0000744:1090d49b-3cde-4c09-a298-b0d500fc76be
+    📦 MR KLEEN (LYNNWOOD) — 06 - Adequate handwashing facilities
+    “Hand wash sink observed with large piece of cardboard covering top of basin area”
+
+FA0009624:1428d12b-f393-4e1d-97ab-b0b900ead61c
+    🪳 MUSTACHE MILK TEA (LYNNWOOD) — 25 - Toxic substances properly identified, stored, used
+    “Observed a can of Raid Ant & Roach pesticide. Label indicates that it's for residential indoor use. Instructed the person in charge to remove the spray can from the premises.”
+
+FA0001415:7f650e23-cbf3-43ce-975a-b27200d120ef
+    🦟 NEW GANG NAM BBQ III (LYNNWOOD) — 44 - Plumbing properly sized, installed, and maintained; proper backflow devices, no cross-connections
+    “Upon beginning inspection, right basin of veggie prep sink observed filled with brown water that was being used to clean oven parts, with some particles of veggies observed in the water. Upon inquiry, oven cleaner was being used to clean cooking grills within the water.”
+
+FA0001404:73036171-83d9-4f9a-a5ab-b16c00f6fdb8
+    🪳 PHO COUNTRY HOUSE (LYNNWOOD) — 25 - Toxic substances properly identified, stored, used
+    “Observed can of household ant and roach raid in facility.”
+
+FA0002543:0084ef7e-8c40-44e7-9db5-b23a00bd3551
+    🐭 PHO HUE (LYNNWOOD) — 25 - Toxic substances properly identified, stored, used
+    “Observed a Raid Ant and Roach pesticide spray can below the kitchen food prep table. There was also a garden sprayer with chemicals stored near the pesticide spray can.”
+
+FA0001136:e4ddbf65-5838-41f1-b89d-b30800ceacdf
+    🐭 POLLOS A LA BRASA SAN FERNANDO (LYNNWOOD) — 25 - Toxic substances properly identified, stored, used
+    “Observation: 1. During time of inspection a bleach bucket was observed holding at 10 ppm. This bleach bucket was left overnight and is used to clean the tables at the front of the house. 2. A bleach bucket that is used in the back of the house was observed sitting at a concentration of 200+ ppm and was being stored in the vegetable prep sink. 3. Knife sharpener was observed sitting in a cardboard”
+
+FA0002450:3027e421-d2f7-4c4a-af47-b25e00f084db
+    🚿 QUIZNO'S #3287 (LYNNWOOD) — 44 - Plumbing properly sized, installed, and maintained; proper backflow devices, no cross-connections
+    “The black hose (Continental ContiTech) that is connected to the water inlet at the 3 compartment sink appears to be a garden hose so that it is not considered to be a food grade hose.”
+
+FA0000825:286a7933-2cfd-4980-ab5a-b0f400ccc90e
+    🐭 ROCKET #5091 (LYNNWOOD) — 25 - Toxic substances properly identified, stored, used
+    “Observed unapproved insect killer pesticide (Raid) in the establishment, on a shelf of the back storage room.”
+
+FA0001636:c318b3b1-8667-4192-ab7f-b39a0101ae0b
+    💅 SUMO ALL YOU CAN EAT (LYNNWOOD) — 04 - Hands washed as required
+    “Observation: During time of inspection a food worker was observed washing gloved hands in a hand wash sink. Another food worker was observed drinking a personal beverage with gloved hands before returning to cooking.”
+
+FA0001736:857594c6-9b67-4b6c-a645-b3cc00f11cad
+    🏠 TAQUERIA EL ANTOJO #2 INC (LYNNWOOD) — 07 - Food obtained from approved source
+    “Cookies made at home are not allowed to be sold at food service establishments.”
+
+FA0002220:cddb4cff-0b6e-48b6-b612-b3530111938f
+    📦 TERIYAKI TIME (LYNNWOOD) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “Observed fried chicken (137 F) in a cardboard box was sitting on top of the kitchen chest freezer. The cardboard box originally was used for raw chicken. Ensure use a food grade container to store ready-to-eat food.”
+
+FA0016858:f9ce93e7-a548-435b-bc7a-b2dc0102d521
+    🏠 TG MARKET (LYNNWOOD) — 07 - Food obtained from approved source
+    “Observed a box of cookies with Noel Homemade Cookies and Cake label.”
+
+FA0003532:439ca418-9dad-41fd-b545-b3fc00e15d37
+    🐭 THAN BROTHERS BAKERY (LYNNWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “1.Observed a significant amount of rat droppings in back dry storage area. 2.Observed door leading to back storage area missing handle and visible light at the bottom of the door.”
+
+FA0014579:84425887-6268-46c9-ac61-b25300edbd05
+    ✋ TOBI'S TEA (LYNNWOOD) — 04 - Hands washed as required
+    “Employee observed rubbing and touching hair on two separate occasions with bare hands. After rubbing and touching hair, employee observed touching clean food equipment and utensils. Same employee also observed returning to prep area from cleaning dishes in back and washing hands about 7 seconds before beginning preparation on customer's order”
+
+FA0008925:9ea0b11e-aeb9-484e-9ec3-b3fb00fc65dd
+    🐭 WETZEL'S PRETZELS (LYNNWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a significant amount of rat droppings around boxes of single use items in back storage area.”
+
+FA0001652:4677be9a-8f47-42ba-8398-b0e500e8e6fc
+    📱 WILD WASABI (LYNNWOOD) — 04 - Hands washed as required
+    “Employee observed handling/talking on cell phone, then moving directly to getting/handling/serving customer orders without washing hands.”
+
+FA0002587:aba77e65-3ff6-4d7c-bcb9-b1cd00bb8807
+    🐭 ADDICTED (MARYSVILLE) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Order windows on both sides of the establishment are left open for ventilation and to facilitate the sole employee taking orders while performing other tasks. Numerous flies were observed in the establishment.”
+
+FA0002400:44adacd5-1a7e-428f-85e3-b32900fc7623
+    📦 BEIJING CHINESE CUISINE (MARYSVILLE) — 13 - Food contact surfaces cleaned and sanitized; no cross contamination
+    “Fried chicken was being stored after cooling in the walk-in cooler inside of a repurposed raw chicken cardboard box with plastic liner.”
+
+FA0002400:35c0fc88-cf3d-459d-9cc2-b1e900d76aec
+    📦 BEIJING CHINESE CUISINE (MARYSVILLE) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “Pieces of cardboard were being used in the walk-in cooler as covers for containers of food.”
+
+FA0002101:d7e1fd2f-b05a-4ab3-9de6-b42c00e0e4a4
+    📦 BLEACHERS GRILL AT CEDARCREST (MARYSVILLE) — 09 - Proper washing of fruits and vegetables
+    “At the start of inspection, observed a worker slicing tomatoes. There was a cardboard box of tomatoes sitting next to the cutting board. When asked, the worker said the tomatoes had not been washed.”
+
+FA0000403:63545e07-60fd-4856-bbc3-b44700cc5efc
+    🦟 CEDARCREST MIDDLE (MARYSVILLE) — 30 - Proper thawing methods used
+    “OBSERVATION(S):A package of frozen Deli-turkey slices were thawing in the wash compartment of 3-compartment sink.”
+
+FA0006254:d2e25ec3-7d04-4c46-8384-b4480132f06b
+    📦 DISTRICT 1 BANH MI & BAR (MARYSVILLE) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “OBSERVATION(S): Cardboard box cut-out was constructed around drain pipes and wedged below handwashing sink to hold plastic bags used to line their trash bins.”
+
+FA0006254:1a0ef0bf-e907-4612-9ba5-b4480132f1cf
+    📦 DISTRICT 1 BANH MI & BAR (MARYSVILLE) — 48 - Physical facilities properly installed, maintained, cleaned; unnecessary persons excluded
+    “OBSERVATION(S): 1.) Cardboard, aluminum foil and woven material used as surface mats in holding food items. Cardboard used as a mat placed over not in use grill to hold pho broths and ingredients. 2.) Overall, lack of cleanliness. Not clean to sight on floors, walls and ceilings. Residue on several surfaces to touch. 1. )”
+
+FA0001328:6aa9972a-214a-48a9-8c73-b4410105d453
+    🦟 GROVE ST FOOD MART (MARYSVILLE) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “OBSERVATION(S): Opened, unwrapped, unidentified cheese was discovered within Valpro 2-Door Glass Display Freezer meant for public sale.”
+
+FA0001328:9392b5b7-f740-46fd-9828-b06d00c00cf0
+    🐭 GROVE ST FOOD MART (MARYSVILLE) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Ceilings in the side hallway are not enclosed, and the roof/rafters space is exposed. This area above the ceiling of the establishment is allowing access for rodents into the establishment.”
+
+FA0001384:ca9d4bcb-51a3-4271-ac16-b24100cc4d8a
+    🪣 LAS MARGARITAS (MARYSVILLE) — 27 - Compliance with variance/specialized process/HACCP plan
+    “A 5 gallon bucket containing raw oysters with an oxygen bubbler attached was observed in the walk-in cooler. This is a repeat violation.”
+
+FA0001384:d047aef3-4994-43ef-892a-b23300f58130
+    🪣 LAS MARGARITAS (MARYSVILLE) — 27 - Compliance with variance/specialized process/HACCP plan
+    “A 5 gallon bucket containing raw oysters with an oxygen bubbler attached was observed in the walk-in cooler.”
+
+FA0001076:27b10dea-6afe-46e1-b9cd-b0d000ef8825
+    📦 MAE PHIM MARYSVILLE THAI RESTAURANT (MARYSVILLE) — 14 - Raw meats below or away from ready-to-eat food; species separated
+    “Peppers being chopped were observed stored in a re-used cardboard chicken breast box.”
+
+FA0002093:df8fdd98-f8e7-47ac-9c87-b42700dd1914
+    📦 MARYSVILLE OSAKA SUSHI & TERIYAKI (MARYSVILLE) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “OBSERVATION(S): Cooked Breaded Chicken stored in their original chicken box in the freezer. Sriracha squeeze bottles reused and repurposed to store other sauces/condiments.”
+
+FA0002093:7c566dac-5464-4743-b852-b42700dd18b0
+    🩹 MARYSVILLE OSAKA SUSHI & TERIYAKI (MARYSVILLE) — 45 - Sewage, wastewater properly disposed
+    “OBSERVATION: The drain line from the ice machine was fed into a nearby floor sink with the tube terminating below the flood rim of the floor sink. This floor sink was also covered with cardboard that had been duct taped to seal it.”
+
+FA0001420:02b173b0-99d7-414d-bf75-b08900e82413
+    🩹 MAXI'S RESTAURANT (MARYSVILLE) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “A metal meat fork was observed repaired with duct tape.”
+
+FA0002808:9f6d9fe3-0470-46bd-aeb7-b1aa00fd2f60
+    🐭 MIYAKO'S TERIYAKI & WOK (MARYSVILLE) — 47 - Garbage, refuse properly disposed; facilities maintained
+    “Observed a large amount of garbage in kitchen, such as open bags of collected egg shells, banana peels, used paper towels, and plastic packaging. A noticeable amount of flies were on the egg shells.”
+
+FA0001237:0f0870d1-9150-45b6-a51e-b15c00e156b8
+    ✋ PLAYA BONITA MEXICAN RESTAURANT (MARYSVILLE) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observation: While washing hands the inspector witnessed a food worker was handling a container of cut cilantro and had placed their thumb into the product.”
+
+FA0001517:5e7ce4da-af78-43cc-a841-b19600d4054b
+    🦟 SABAIJAI MARYSVILLE (MARYSVILLE) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observed opened energy drink in walk in cooler above open food items.”
+
+FA0002879:a18fd75b-3a2d-4c5a-ac63-b0c100f409ba
+    📦 SUBWAY #42976 (MARYSVILLE) — 06 - Adequate handwashing facilities
+    “The back room handwash sink had been blocked with cardboard boxes, in front of and on top, obstructing the basin of the sink.”
+
+FA0001691:84543b28-978a-49ea-b388-b0c200f8c130
+    🦟 WALKER'S COFFEE COMPANY (MARYSVILLE) — 04 - Hands washed as required
+    “Food workers did not wash hands during the inspection until prompted by the inspector. After taking money and cards from customers, and using a touch screen POS interface, hands were not washed before resuming drink and food prep.”
+
+FA0004997:c7c210fd-3718-4b08-b848-b40400d96496
+    🤷 ARIRANG BUFFET RESTAURANT (MILL CREEK) — 38 - Utensils, equipment, linens properly stored, used, handled
+    “Observation: During time of inspection a kitchen knife was observed stabbed into a plastic sealant between two fuze boxes. When inspector asked the kitchen staff member regarding this matter he was surprised by the knife and said he wasn't aware of it. When asking why it was stored in this spot the kitchen staff member mentioned that due to its location it could be stored in that spot by other mem”
+
+FA0003017:db9e6ce8-30e0-4bdf-97e8-b14700f0698e
+    🪣 EL REY TAQUERIA AND RESTAURANT (MONROE) — 30 - Proper thawing methods used
+    “Observation- Observed raw fish thawing in a bucket of water in prep sink (faucet was not turned on).”
+
+FA0002060:0e953a58-5594-4d43-a198-b0830104c8a6
+    🐭 STARBUCKS COFFEE CO #3259 (MONROE) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed a significant amount of flies throughout establishment, especially in the coffee preparation areas. Person in charge indicated that work/treatment orders have already been placed and are aware of the issue.”
+
+FA0001282:a05c43c2-0755-4d6a-897b-b02100e23efa
+    🐭 THAI ON MAIN STREET (MONROE) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Door leading to outside in the back kitchen (food prep area) was left open for entirety of inspection. Also noted an abundance of fly traps throughout establishment.”
+
+FA0001781:0e620c16-6f83-4696-b946-b32800f59b44
+    🐭 TIJUANA RESTAURANT (MONROE) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed: Rodent feces in the basement storage area near the water heater and ice machine. No live or dead rodents were seen at the time of the inspection. There are many items stored in the basement that are unnecessary to the operation/maintenance of the establishment.”
+
+FA0011808:0a268767-2fe6-457a-8c22-b28101383488
+    🦟 BAGUUS LITTLE ASIA (MOUNTLAKE TERRACE) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Upon entering kitchen area where chicken was being prepped, employee observed eating meal while on break”
+
+FA0001104:f4ebebe0-bb4b-4c16-a8a7-b3bb00df7f4e
+    🐾 EAST COAST ENZOS PIZZA (MOUNTLAKE TERRACE) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Upon entry into the food establishment, observed a pet licking the hand of the food service employee.”
+
+FA0002037:80ee3331-98f4-4369-9432-b2a300ec7007
+    🦟 PAPA MURPHY'S PIZZA (MOUNTLAKE TERRACE) — 01 - PIC present, demonstrates knowledge and performs duties to maintain AMC. Certified manager on staff
+    “Upon beginning inspection, employee stated that person in charge who is responsible for operation of facility left around 1pm and to return around 4pm. Inquired at least 3 times if anyone was the person in charge to monitor food safety, or they were designated as person in charge while main person in charge was away, they replied "no" and unable to answer some questions during inspection An indivi”
+
+FA0001637:fe3367c9-464a-45a0-8bf5-b2ac00d8aa8d
+    🧼 RINGERS PUB (MOUNTLAKE TERRACE) — 06 - Adequate handwashing facilities
+    “Hand wash sink at main prep area blocked with items, including broom and dustpan.”
+
+FA0002103:3f56e854-6776-440a-ba04-b3cd00d112ec
+    🩹 HENRY'S DONUTS (MUKILTEO) — 40 - Food and nonfood surfaces properly used and constructed; cleanable
+    “Observed donuts were stored in cardboard boxes sealed with duct tape. These boxes were being reused for donut storage. Single-use cardboard boxes are intended for one-time use only.”
+
+FA0001620:e91dfcb3-dee2-4272-b8af-b26e00e91d63
+    ✋ SAKUMA JAPANESE RESTAURANT (MUKILTEO) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observed the sushi chef slicing yellow tail tuna with his bare hands.”
+
+FA0001022:6d282b37-423a-4b79-930a-b10900da01b0
+    🐭 CABBAGE PATCH RESTAURANT & CATERING (SNOHOMISH) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observation: During time of inspection the back door of the restaurant was wide open. The dry storage also was open and unprotected. It was also noticed that rat/mouse traps were located next to exposed potatoes.”
+
+FA0000391:663709a9-7c06-412b-aeb6-b1cd00d2db06
+    🤷 CAMP EDWARD (SNOHOMISH) — 42 - Food-contact surfaces maintained, cleaned, sanitized
+    “The inside of the ice machine showed dirt residue with an alcohol wipe. Staff did not know when the ice machine had last been cleaned.”
+
+FA0003319:b9ae8613-f309-494f-bdc8-b42d00fd4070
+    🚽 COCOS MARISCOS AND BAR (SNOHOMISH) — 04 - Hands washed as required
+    “Observed a kitchen worker returning to the kitchen, putting on an apron, and grabbing gloves next to the hand wash sink. When asked where he washed his hands, he said the restroom.”
+
+FA0003319:d006e4cc-73b1-4fc2-a00d-b1f700cbc869
+    🧼 COCOS MARISCOS AND BAR (SNOHOMISH) — 06 - Adequate handwashing facilities
+    “In the kitchen, one hand wash sink had no soap, and the other was blocked with a serving spoon in the basin.”
+
+FA0003319:aa597574-5990-4e6b-8865-b1f700cbc85f
+    🪰 COCOS MARISCOS AND BAR (SNOHOMISH) — 25 - Toxic substances properly identified, stored, used
+    “Repeat violation. Insect spray found in the bar for fruit flies.”
+
+FA0003319:37f6b770-1610-4e0a-9631-b0e600b7b6c0
+    🪰 COCOS MARISCOS AND BAR (SNOHOMISH) — 25 - Toxic substances properly identified, stored, used
+    “Raid flying insect spray present in bar area for fruit flies.”
+
+FA0001899:52f0c9cf-00c9-4231-a4ab-b3a100c3ddaf
+    ✋ GROUNDED TEA & COFFEE (SNOHOMISH) — 26 - Compliance with valid permit, operating and risk control plans, and required written procedures
+    “1) Staff described taking breakfast burritos and sandwiches out of the package prior to heating in the microwave. 2) An ice machine has been installed, plumbed with public water. 3) The commissary agreement is no longer valid, due to the Chevron station undergoing a change of ownership earlier this year. 4) Cold brew was described as made in the stand. With an unplumbed, low risk food establishmen”
+
+FA0005123:38ecb4d2-244c-42fc-a0a8-b21000f12a90
+    🤷 HOPS N DROPS (SNOHOMISH) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “Two containers of half-and-half in the bar walk-in fridge were open and unmarked. The person in charge did not know when they had been opened.”
+
+FA0002930:7a5092c1-3b6e-47a8-8850-b1be00cd86ce
+    ✋ SNOHOMISH EAGLES FOE #195 (SNOHOMISH) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observation: During time of inspection an employee was observed handling cut lemons without proper barriers.”
+
+FA0002930:52dc9bd7-01cb-4156-84fe-b10900fda9b5
+    🔍 SNOHOMISH EAGLES FOE #195 (SNOHOMISH) — 02 - Food Worker Cards current for all food workers; new food workers trained
+    “Observation: During the time of inspection the food worker currently working couldn't locate their food worker card. It was also noticed that a volunteer working on jello shots was working behind the counter and had no food worker card.”
+
+FA0001698:4733228d-e2d3-4240-ba82-b17900f7fa3d
+    🐭 SPADA FARMHOUSE BREWERY (SNOHOMISH) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observation: During time of inspection the inspector entered the establishment with the front door propped open. After completing the inspection the door was still open.”
+
+FA0000658:a833e13a-bafe-4280-9cb6-b14d00f309b8
+    🤷 STORM LAKE GROCERY (SNOHOMISH) — 11 - Proper disposition of returned, unsafe, or contaminated; proper date marking high risk for Listeria
+    “No date marking on an open package of hot dogs in the walk-in cooler. The person in charge did not know how long they had been opened.”
+
+FA0000658:22eb63c9-b9df-4c54-ab1a-b14d00f30938
+    📦 STORM LAKE GROCERY (SNOHOMISH) — 42 - Food-contact surfaces maintained, cleaned, sanitized
+    “The 3-compartment sinks are blocked with cardboard. The person in charge said that the dishes are washed in the vegetable preparation sink. Dishes are not sanitized.”
+
+FA0002919:fc5082a4-0088-4a97-821d-b0e500d7d68a
+    ✋ THAI NAAN LLC (SNOHOMISH) — 05 - Proper barriers used to prevent bare hand contact with ready-to-eat foods
+    “Observation: During the time of inspection it was observed that a food worker grabbed cabbage that spilled over from the cabbage bin into the carrots. The employee was not wearing any gloves. A different food worker was observed grabbing peanuts with their bare hands after the peanuts were cooked.”
+
+FA0000587:3a6f985d-8f3b-41f6-8202-b21300bd2857
+    🐭 ARCO AMPM #7091 (STANWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed gap under back door of facility. Door has a sweep that does not touch the ground as evidenced by the presence of daylight observed entering under the door.”
+
+FA0002663:7cfd7d75-b570-441a-9506-b18c00d0612d
+    🐭 DOS REALES TAQUERIA (STANWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed ants present in service area.”
+
+FA0000763:5efa7564-9356-4f2c-8bcb-b1cb00e25cb8
+    🦟 LAKE GOODWIN STORE (STANWOOD) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observed employee eating while in kitchen..”
+
+FA0017621:0e153a20-af20-401b-bd51-b0a100f6dd46
+    🦟 PAT'S THAI SHABU (STANWOOD) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observed personal food in all food areas which included open foods. Personal beverages were found in open containers in food prep areas.”
+
+FA0002051:a96ea400-0a7d-4473-8cdb-b42101160f06
+    🦟 STANWOOD CINEMA AT THE PAVILION (STANWOOD) — 36 - Proper eating, tasting, drinking, or tobacco use
+    “Observed employee continually eating snacks in front of the service counter.”
+
+FA0001535:3eab9806-3f57-49cf-b4b4-b34700ecef45
+    🐭 THAI THAI KITCHEN STANWOOD (STANWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “1) Observed live cockroaches behind prep top refrigerators and on floor in storage area. Observed mouse droppings around kitchen.”
+
+FA0001535:dccb81a4-bb38-45c8-8c74-b19a00df3bbf
+    🐭 THAI THAI KITCHEN STANWOOD (STANWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “1) Observed dead mouse in sticky mat near dishwasher.”
+
+FA0000062:12167c5e-586f-42df-b59d-b22600c95c46
+    🐭 WARM BEACH CAMP & CONFERENCE CENTER (STANWOOD) — 32 - Insects, rodents, animals not present; entrance controlled
+    “Observed ants crawling along the hand sink in the dishmachine room.”
