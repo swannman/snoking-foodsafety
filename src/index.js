@@ -63,9 +63,9 @@ export default {
         start_url: "/", scope: "/", display: "standalone", orientation: "any",
         background_color: "#0d1117", theme_color: "#0d1117",
         icons: [
-          { src: "/icon-192.png?v=6", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=6", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=6", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "/icon-192.png?v=7", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=7", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=7", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       }, { headers: { "Cache-Control": "public, max-age=86400" } });
     }
@@ -292,8 +292,8 @@ const MAP_HTML = String.raw`<!doctype html>
 <title>SnoKing Food Safety — Restaurant Inspection Ratings</title>
 <meta name="theme-color" content="#0d1117">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/icon-180.png?v=6">
-<link rel="icon" type="image/png" href="/icon-192.png?v=6">
+<link rel="apple-touch-icon" href="/icon-180.png?v=7">
+<link rel="icon" type="image/png" href="/icon-192.png?v=7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -797,7 +797,7 @@ const STATS_HTML = String.raw`<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ratings">
-<link rel="apple-touch-icon" href="/icon-180.png?v=6">
+<link rel="apple-touch-icon" href="/icon-180.png?v=7">
 <title>SnoKing Food Safety — Ratings by Area</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1057,7 +1057,7 @@ const BLOOPERS_HTML = String.raw`<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ratings">
-<link rel="apple-touch-icon" href="/icon-180.png?v=6">
+<link rel="apple-touch-icon" href="/icon-180.png?v=7">
 <title>SnoKing Food Safety — Inspection Bloopers</title>
 <style>
   :root{--bg:#0d1117;--card:#161b22;--ink:#e6edf3;--muted:#8b949e;--line:#2a3038;--accent:#58a6ff}
