@@ -389,7 +389,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>🍽️ SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <input id="q" placeholder="Search name or address…" autocomplete="off">
