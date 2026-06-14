@@ -33,3 +33,22 @@ export function blooperText(memo) {
   s = s.split(/\(?WAC\s*\d|\(WAC/i)[0];        // cut at the regulation citation
   return s.replace(/\s+/g, " ").replace(/^[-•\s]+/, "").trim();
 }
+
+// Generic/food/place words that a name shares with many businesses — never redact these, or
+// "pad thai", "the coffee", "gyro meat" etc. would get mangled. Only DISTINCTIVE name tokens
+// (the brand word) are stripped, so the blooper reel stays de-identified without losing flavor.
+const REDACT_STOP = new Set(("the a an and or of de la el los las inc llc co corp ltd restaurant cafe coffee bar grill grille kitchen market mart deli bakery house cottage stop truck mobile food foods cuisine eatery bistro diner pub tavern lounge express thai pho gyro gyros sushi pizza pizzeria taco tacos taqueria bbq donut donuts bagel bagels chicken seafood noodle noodles ramen teriyaki burger burgers sandwich sandwiches juice tea boba wok asian mexican italian indian korean chinese vietnamese japanese mediterranean american soul country valley village center park lake hill river bay golden royal new old town city east west north south best great little big family fresh garden spice king queen").split(/\s+/));
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// strip the establishment's own distinctive name from its blooper narrative (de-identify the reel)
+export function redactName(text, name) {
+  if (!text || !name) return text;
+  let out = text;
+  const clean = name.replace(/\([^)]*\)/g, " ").replace(/#\S+/g, " ").replace(/['’]s\b/gi, "");
+  const phrase = clean.replace(/\s+/g, " ").trim();
+  if (phrase.length >= 6 && /\s/.test(phrase)) out = out.replace(new RegExp(reEsc(phrase), "ig"), "the establishment");
+  for (const tok of clean.split(/[^A-Za-z]+/)) {
+    if (tok.length >= 4 && !REDACT_STOP.has(tok.toLowerCase()))
+      out = out.replace(new RegExp("\\b" + reEsc(tok) + "(?:['’]s)?\\b", "ig"), "the establishment");
+  }
+  return out.replace(/\s+/g, " ").trim();
+}

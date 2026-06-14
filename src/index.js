@@ -174,7 +174,8 @@ export default {
       return Response.json({ ok: true, n: stmts.length });
     }
     if (url.pathname === "/api/bloopers") {
-      const { results } = await env.DB.prepare("SELECT id,name,city,date,tag,label,text,report_url,lat,lon FROM bloopers ORDER BY date DESC").all();
+      // de-identified: no name / report link / coords / facility id — just city + date + the narrative
+      const { results } = await env.DB.prepare("SELECT city,date,tag,label,text FROM bloopers ORDER BY date DESC").all();
       return cachePut(req, ctx, Response.json({ count: (results || []).length, items: results || [] }, { headers: { "Cache-Control": "public, max-age=900" } }));
     }
     if (url.pathname === "/bloopers") return new Response(BLOOPERS_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -405,8 +406,8 @@ const MAP_HTML = String.raw`<!doctype html>
         <label>Shade by <span class="vals" id="emojihint" style="font-weight:400;color:var(--muted)"></span></label>
         <select id="colorby">
           <option value="rating">Rating (latest)</option>
-          <option value="avg">Avg of last 5 inspections</option>
           <option value="routine">Last routine (ignores reinspections)</option>
+          <option value="avg">Avg of last 5 inspections</option>
           <option value="worstpts">Worst inspection (points)</option>
           <option value="poorfrac">% routines Okay-or-worse (chronic)</option>
           <option value="resid">vs cuisine norm (over/under-performers)</option>
@@ -1094,18 +1095,17 @@ function card(b){
   return '<div class="card"><div class="em">'+(b.tag||"😅")+'</div>'+
     '<div class="quote">"'+esc(b.text)+'"</div>'+
     '<div class="vlabel">'+esc(b.label||"")+'</div>'+
-    '<div class="meta"><b>'+esc(b.name)+'</b>'+(b.city?' · '+esc(b.city):'')+(b.date?' · '+fmt(b.date):'')+
-      (b.report_url?' · <a href="'+esc(b.report_url)+'" target="_blank" rel="noopener">report ↗</a>':'')+'</div></div>';
+    '<div class="meta">'+(b.city?esc(b.city):'Snohomish County')+(b.date?' · '+fmt(b.date):'')+'</div></div>';
 }
 function render(){
-  var list=ALL.filter(function(b){return !q||((b.text+" "+b.name+" "+(b.label||"")).toLowerCase().indexOf(q)>=0);});
+  var list=ALL.filter(function(b){return !q||((b.text+" "+(b.label||"")+" "+(b.city||"")).toLowerCase().indexOf(q)>=0);});
   document.getElementById("count").textContent=list.length.toLocaleString()+(q?" matching":"")+" bloopers";
   document.getElementById("grid").innerHTML=list.length?list.map(card).join(""):'<div class="loading">No matches.</div>';
 }
 fetch("/api/bloopers").then(function(r){return r.json();}).then(function(j){
   ALL=(j.items||[]);
   // light shuffle so it's not all one facility in a row, but keep it deterministic enough
-  ALL.sort(function(a,b){return (a.date<b.date?1:a.date>b.date?-1:0)|| (a.name<b.name?-1:1);});
+  ALL.sort(function(a,b){return (a.date<b.date?1:a.date>b.date?-1:0)|| (a.text<b.text?-1:1);});
   render();
 });
 var t;document.getElementById("q").oninput=function(e){clearTimeout(t);var v=e.target.value.toLowerCase();t=setTimeout(function(){q=v;render();},160);};

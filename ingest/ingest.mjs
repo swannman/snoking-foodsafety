@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { cuisineOf } from "./cuisine.mjs";
-import { blooperTag, blooperText } from "./bloopers.mjs";
+import { blooperTag, blooperText, redactName } from "./bloopers.mjs";
 import { loadTagger } from "./regions.mjs";
 let tagTract = () => null;
 try { tagTract = loadTagger(); } catch (e) { console.log("tract tagger disabled:", e.message); }
@@ -325,7 +325,7 @@ async function snohomish() {
           const text = blooperText(v.v_memo); if (text.length < 14) continue;
           bloopers.push({ id: f.FacilityId + ":" + (v.Oid || (dstr(ins.activity_date) + ":" + (v.violation_code || ""))),
             facilityId: f.FacilityId, name: (f.FacilityName || "").trim(), city, date: dstr(ins.activity_date), tag,
-            label: v.violation_description || v.violation_text || "", text: text.slice(0, 400), report_url: rurl });
+            label: v.violation_description || v.violation_text || "", text: redactName(text.slice(0, 400), f.FacilityName), report_url: rurl });
         }
       }
     } catch (e) { fails++; }
