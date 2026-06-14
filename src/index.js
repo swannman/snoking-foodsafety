@@ -318,6 +318,8 @@ const MAP_HTML = String.raw`<!doctype html>
   #loc{color:#1d6ef2}
   #loc svg{display:block;transform:translateY(1px)}
   #loc.locating{opacity:.5}
+  #about{color:#58a6ff}
+  #about svg{display:block}
   h1 .tog{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#fff;background:var(--accent);padding:6px 12px;border-radius:999px;line-height:1}
   @media(min-width:721px){h1 .tog{display:none}}   /* panel is always open on desktop — no toggle needed */
   h1 .tog b{font-size:16px;line-height:1;transition:transform .15s;display:inline-block}
@@ -391,7 +393,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" href="/about" title="About &amp; methodology" aria-label="About">ℹ️</a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <input id="q" placeholder="Search name or address…" autocomplete="off">
