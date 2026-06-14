@@ -401,10 +401,6 @@ const MAP_HTML = String.raw`<!doctype html>
         <label>Cuisine</label>
         <select id="cuisine"><option value="">All cuisines</option></select>
       </div>
-      <div class="field" id="rfield">
-        <label><span id="rlabel">Rating</span> <span class="vals" id="rval"></span></label>
-        <div class="dual" id="rslider"></div>
-      </div>
       <div class="field">
         <label>Shade by <span class="vals" id="emojihint" style="font-weight:400;color:var(--muted)"></span></label>
         <select id="colorby">
@@ -417,6 +413,10 @@ const MAP_HTML = String.raw`<!doctype html>
           <option value="age">Years in operation</option>
           <option value="cuisine">Cuisine</option>
         </select>
+      </div>
+      <div class="field" id="rfield">
+        <label><span id="rlabel">Rating</span> <span class="vals" id="rval"></span></label>
+        <div class="dual" id="rslider"></div>
       </div>
     </div>
     <div id="listhead"><span id="count">…</span><span><span id="upd"></span> · in view · <span id="sortdir" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Click to flip sort order">worst first</span></span></div>
