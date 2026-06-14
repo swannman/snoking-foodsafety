@@ -58,7 +58,7 @@ export default {
     // ── PWA: manifest, icons (from KV), service worker ──────────────────────────
     if (url.pathname === "/manifest.webmanifest") {
       return Response.json({
-        name: "SnoKing Food Safety", short_name: "SnoKing",
+        name: "SnoKing Food Safety", short_name: "Ratings",
         description: "Restaurant food-safety inspection ratings map for King & Snohomish counties, WA",
         start_url: "/", scope: "/", display: "standalone", orientation: "any",
         background_color: "#0d1117", theme_color: "#0d1117",
@@ -297,7 +297,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SnoKing">
+<meta name="apple-mobile-web-app-title" content="Ratings">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -796,7 +796,7 @@ const STATS_HTML = String.raw`<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SnoKing">
+<meta name="apple-mobile-web-app-title" content="Ratings">
 <link rel="apple-touch-icon" href="/icon-180.png?v=6">
 <title>SnoKing Food Safety — Ratings by Area</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -1056,7 +1056,7 @@ const BLOOPERS_HTML = String.raw`<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SnoKing">
+<meta name="apple-mobile-web-app-title" content="Ratings">
 <link rel="apple-touch-icon" href="/icon-180.png?v=6">
 <title>SnoKing Food Safety — Inspection Bloopers</title>
 <style>
