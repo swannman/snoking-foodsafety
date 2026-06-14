@@ -478,9 +478,8 @@ function fmtDate(s){if(!s)return"";var d=new Date(s);return isNaN(d)?s:d.toLocal
 
 // start collapsed on small screens so the map gets the whole viewport (tap "Filters" to open)
 if(window.matchMedia("(max-width:720px)").matches) document.getElementById("feed").classList.add("collapsed");
-var map=L.map("map",{preferCanvas:true}).setView([47.7,-122.1],10);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {maxZoom:19,attribution:'&copy; OpenStreetMap · Public Health—Seattle &amp; King County, Snohomish County Health Dept'}).addTo(map);
+var map=L.map("map",{preferCanvas:true,attributionControl:false}).setView([47.7,-122.1],10);   // credits live on /about
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
 var canvas=L.canvas({padding:.5});
 // enlarge the tap target for the small canvas dots — by default only a pixel-perfect hit on the
 // 7px circle registers (the big emoji markers don't have this problem), so a near-miss tap feels
@@ -879,9 +878,8 @@ function geohashCell(lat,lon,prec){var latR=[-90,90],lonR=[-180,180],hash="",bit
 function ghPrec(z){return z<=8?4:z<=10?5:z<=12?6:z<=14?7:8;}   // finer tiles as you zoom in
 function pRating(p){var b=q("basis").value;return b==="last"?p.r:(b==="all"?(p.aa!=null?p.aa:p.r):(p.ra!=null?p.ra:p.r));}
 
-var map=L.map("map",{preferCanvas:true}).setView([47.75,-122.1],9);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  {maxZoom:18,subdomains:"abcd",attribution:"&copy; OpenStreetMap &copy; CARTO · Census ACS · King &amp; Snohomish health depts"}).addTo(map);
+var map=L.map("map",{preferCanvas:true,attributionControl:false}).setView([47.75,-122.1],9);   // credits live on /about
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",{maxZoom:18,subdomains:"abcd"}).addTo(map);
 var regions=null, statByRegion={}, gl=null, breaks=[], fitted=false;
 
 (function(){var s=q("cuisine");CU_ORDER.forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=CU_LABEL[k]||k;s.appendChild(o);});})();
@@ -1167,4 +1165,8 @@ const ABOUT_HTML = String.raw`<!doctype html>
     <li>King County: <a href="https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings" target="_blank" rel="noopener">food safety ratings lookup</a></li>
     <li>Snohomish County: <a href="https://www.snohd.org/169/Food-Safety-Program" target="_blank" rel="noopener">Snohomish County Health Department &mdash; Food Safety Program</a></li>
   </ul>
+
+  <h2>Credits</h2>
+  <p><strong>Inspection data:</strong> Public Health &mdash; Seattle &amp; King County, and the Snohomish County Health Department.</p>
+  <p><strong>Map tiles:</strong> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, and &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> (neighborhood-trends map). Demographic context on the trends map is from the U.S. Census Bureau&rsquo;s American Community Survey.</p>
 </div><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
