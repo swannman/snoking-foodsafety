@@ -179,6 +179,7 @@ export default {
       return cachePut(req, ctx, Response.json({ count: (results || []).length, items: results || [] }, { headers: { "Cache-Control": "public, max-age=900" } }));
     }
     if (url.pathname === "/bloopers") return new Response(BLOOPERS_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    if (url.pathname === "/about") return new Response(ABOUT_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
 
     if (url.pathname === "/regions.geojson") {
       const geo = await env.REGIONS.get("regions.geojson");
@@ -390,7 +391,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" href="/about" title="About &amp; methodology" aria-label="About">ℹ️</a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <input id="q" placeholder="Search name or address…" autocomplete="off">
@@ -1110,3 +1111,91 @@ fetch("/api/bloopers").then(function(r){return r.json();}).then(function(j){
 });
 var t;document.getElementById("q").oninput=function(e){clearTimeout(t);var v=e.target.value.toLowerCase();t=setTimeout(function(){q=v;render();},160);};
 </script></body></html>`;
+
+// ============================ /about — methodology ============================
+const ABOUT_HTML = String.raw`<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<link rel="apple-touch-icon" href="/icon-180.png?v=7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ratings">
+<title>About — SnoKing Food Safety</title>
+<style>
+  :root{--bg:#0d1117;--ink:#e6edf3;--muted:#8b949e;--line:#2a3038;--accent:#58a6ff}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:740px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) calc(22px + env(safe-area-inset-right)) 64px calc(22px + env(safe-area-inset-left))}
+  .back{display:inline-block;color:var(--muted);text-decoration:none;font-size:14px;margin-bottom:16px}
+  .back:hover{color:var(--accent)}
+  h1{font-size:27px;margin:0 0 14px;letter-spacing:-.01em}
+  h2{font-size:19px;margin:34px 0 8px;font-weight:600}
+  p{margin:0 0 14px;color:#c9d2dc}
+  ul{margin:0 0 14px;padding-left:22px;color:#c9d2dc}
+  li{margin:5px 0}
+  strong{color:var(--ink);font-weight:600}
+  table{border-collapse:collapse;margin:8px 0 16px;font-size:15px}
+  th,td{border:1px solid var(--line);padding:6px 16px;text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+</style></head><body>
+<div class="wrap">
+  <a class="back" href="/">&larr; back to the map</a>
+  <h1>About this map</h1>
+
+  <p>This is a map of restaurant and food-establishment inspection ratings for King and Snohomish counties. The inspection records are already public, but they're spread across two county systems and aren't easy to browse or compare. This puts both counties on one map, lets you filter and sort it, and makes it possible to see patterns that aren't obvious when you look up one place at a time.</p>
+  <p>It's free, has no ads, and doesn't require an account.</p>
+
+  <h2>Where the data comes from</h2>
+  <ul>
+    <li><strong>King County:</strong> restaurant inspection records published by Public Health &mdash; Seattle &amp; King County.</li>
+    <li><strong>Snohomish County:</strong> inspection records from the Snohomish County Health Department.</li>
+  </ul>
+  <p>Both are public inspection records. The map refreshes from those sources on a regular schedule, so ratings update as new inspections are posted.</p>
+
+  <h2>How the rating works</h2>
+  <p>Every establishment is placed on the same four labels &mdash; Excellent, Good, Okay, Needs to Improve (lower is better) &mdash; but the two counties produce them differently.</p>
+  <p><strong>King County</strong> publishes its own rating, and this map uses it as-is. King calculates it from the average of a restaurant's <em>critical</em> (red) violation points across its last four routine inspections, with the cutoffs between categories set relative to how all King County restaurants score, plus rules for recent closures and repeat re-inspections. King's full methodology is published <a href="https://kingcounty.gov/en/dept/dph/health-safety/food-safety/inspection-rating-system/rating-system" target="_blank" rel="noopener">here</a>.</p>
+  <p><strong>Snohomish County</strong> doesn't publish a summary rating, so this map derives one from the violation points on the most recent inspection, where more points mean more or more serious violations:</p>
+  <table>
+    <tr><th>Violation points</th><th>Rating</th></tr>
+    <tr><td>0</td><td>Excellent</td></tr>
+    <tr><td>1&ndash;15</td><td>Good</td></tr>
+    <tr><td>16&ndash;35</td><td>Okay</td></tr>
+    <tr><td>36 or more</td><td>Needs to Improve</td></tr>
+  </table>
+  <p>The same thresholds are used for the small number of King County establishments that are inspected but not graded, such as some schools and institutional kitchens.</p>
+  <p>Because King's rating averages several inspections and counts only critical violations, while the Snohomish-derived rating is the full score of a single inspection, the two aren't calculated the same way. They share the same labels so both counties can sit on one map, but a King "Good" and a Snohomish "Good" come from different formulas.</p>
+
+  <h2>Ways to explore it</h2>
+  <p>You can filter the map by cuisine and shade it by different measures, including:</p>
+  <ul>
+    <li>the latest inspection rating</li>
+    <li>the most recent <strong>routine</strong> inspection, ignoring follow-up re-inspections</li>
+    <li>the average of the last five inspections</li>
+    <li>the worst rating on record</li>
+    <li>how often a place's routine inspections come back okay-or-worse</li>
+    <li>years on record</li>
+    <li>cuisine type</li>
+  </ul>
+  <p>There's also a stats view that aggregates ratings by area, either by census tract or by map tiles that get smaller as you zoom in.</p>
+  <p>The history-based measures (average, worst on record, how often routines come back poor) are calculated the same way from raw inspection points in both counties, so they're the most directly comparable views across the county line.</p>
+
+  <h2>Comparing restaurants of the same cuisine</h2>
+  <p>One pattern stands out in the data: inspection scores track closely with the kind of food a place makes. Restaurants that cook a lot from scratch &mdash; handling raw ingredients, holding food hot and cold, and doing more steps by hand &mdash; tend to accumulate more violation points than places like coffee shops, bakeries, and bars.</p>
+  <p>This isn't a statement about cleanliness. A kitchen doing complex prep simply has more points where an inspector can find something, so it carries more risk on paper than a place that mostly pours drinks or sells pre-made items. Comparing those two on raw score isn't a fair comparison.</p>
+  <p>Because of that, the map has a <strong>"vs cuisine norm"</strong> view. Instead of coloring each place by its absolute rating, it colors each place by how it compares to the average for its own cuisine. A chicken restaurant that does better than most chicken restaurants shows up as strong, even if its raw score is middling for the map as a whole. This is the most useful way to read the data if you want to know which restaurants stand out among their peers, rather than which cuisines are harder to inspect.</p>
+
+  <h2>What the ratings don't tell you</h2>
+  <p>An inspection is a snapshot of one visit. The result depends on timing and on the inspector, and many violations are about record-keeping or temperatures rather than anything you'd notice as a customer. A single good score doesn't guarantee a good experience, and one bad inspection doesn't mean a place is unsafe. The history-based measures are steadier than any single rating, which is why they're included.</p>
+  <p>Snohomish County's online records only go back a few years, so "years on record" and long-term history are shorter there than in King County.</p>
+
+  <h2>Not an official source</h2>
+  <p>This is an independent project. It isn't affiliated with, operated by, or endorsed by King County, Snohomish County, or any health department. The data is pulled from county records and processed automatically, so some details may be off, such as a misplaced pin or a cuisine guessed incorrectly. For authoritative inspection information, or to correct a restaurant's record, check with the county directly:</p>
+  <ul>
+    <li>King County: <a href="https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings" target="_blank" rel="noopener">food safety ratings lookup</a></li>
+    <li>Snohomish County: <a href="https://www.snohd.org/169/Food-Safety-Program" target="_blank" rel="noopener">Snohomish County Health Department &mdash; Food Safety Program</a></li>
+  </ul>
+</div></body></html>`;
