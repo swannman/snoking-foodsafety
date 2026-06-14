@@ -4,6 +4,15 @@ compatibility_date = "2024-11-01"
 account_id = "e586791371224fd8a71725fce7f6f1a6"
 workers_dev = true
 
+# custom domains (zone must be active on this Cloudflare account)
+[[routes]]
+pattern = "food.snoking.live"
+custom_domain = true
+
+[[routes]]
+pattern = "food.snoking.app"
+custom_domain = true
+
 [observability]
 enabled = true
 

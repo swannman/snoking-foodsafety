@@ -30,15 +30,21 @@ function worstPointsOf(h) { let w = null; for (const x of h || []) if (x.score !
 const CACHEABLE = new Set(["/api/establishments", "/api/points", "/api/region-stats", "/api/stats", "/api/bloopers", "/regions.geojson"]);
 // Service worker (network-first, cache fallback) so the installed PWA loads offline. Always fresh
 // online; serves the last-seen page/assets/tiles when there's no network.
-const SW_JS = `const C="snoking-v1";
+const SW_JS = `const C="snoking-v2";
 self.addEventListener("install",function(e){self.skipWaiting();});
 self.addEventListener("activate",function(e){e.waitUntil((async function(){var ks=await caches.keys();await Promise.all(ks.filter(function(k){return k!==C;}).map(function(k){return caches.delete(k);}));await self.clients.claim();})());});
-self.addEventListener("fetch",function(e){var r=e.request;if(r.method!=="GET")return;
+// versioned (?v=) URLs, pinned CDN assets, and map tiles never change for a given URL, so serve
+// them cache-FIRST: a returning visitor's repeat requests are answered by the SW and never reach
+// the Worker. (Everything else stays network-first so HTML/data stays fresh.)
+function immutable(u){return /[?&]v=/.test(u.search)||/unpkg\\.com|basemaps\\.cartocdn\\.com|tile\\.openstreetmap/.test(u.host);}
+self.addEventListener("fetch",function(e){var r=e.request;if(r.method!=="GET")return;var u=new URL(r.url);
+  if(immutable(u)){
+    e.respondWith(caches.match(r).then(function(m){return m||fetch(r).then(function(res){if(res&&res.status===200){var c=res.clone();caches.open(C).then(function(ca){ca.put(r,c);});}return res;});}));
+    return;
+  }
   e.respondWith((async function(){
-    try{var res=await fetch(r);
-      if(res&&res.status===200&&(new URL(r.url).origin===location.origin||/unpkg\\.com|cartocdn\\.com|tile\\.openstreetmap/.test(r.url))){var c=res.clone();caches.open(C).then(function(ca){ca.put(r,c);});}
-      return res;
-    }catch(err){var m=await caches.match(r);if(m)return m;throw err;}
+    try{var res=await fetch(r);if(res&&res.status===200&&u.origin===location.origin){var c=res.clone();caches.open(C).then(function(ca){ca.put(r,c);});}return res;}
+    catch(err){var m=await caches.match(r);if(m)return m;throw err;}
   })());
 });`;
 function cachePut(req, ctx, resp) {
@@ -71,7 +77,7 @@ export default {
     }
     if (/^\/icon-\d+\.png$/.test(url.pathname)) {
       const buf = await env.REGIONS.get(url.pathname.slice(1), { type: "arrayBuffer" });
-      return buf ? new Response(buf, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" } })
+      return buf ? new Response(buf, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" } })
                  : new Response("not found", { status: 404 });
     }
     if (url.pathname === "/sw.js") {
