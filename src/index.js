@@ -28,25 +28,6 @@ function worstPointsOf(h) { let w = null; for (const x of h || []) if (x.score !
 // full-table scans against D1; with it, the Worker touches D1 only on the first request per
 // version per colo — repeat & shared traffic is served from cache for ~0 D1 rows read.
 const CACHEABLE = new Set(["/api/establishments", "/api/points", "/api/region-stats", "/api/stats", "/api/bloopers", "/regions.geojson"]);
-// Service worker (network-first, cache fallback) so the installed PWA loads offline. Always fresh
-// online; serves the last-seen page/assets/tiles when there's no network.
-const SW_JS = `const C="snoking-v2";
-self.addEventListener("install",function(e){self.skipWaiting();});
-self.addEventListener("activate",function(e){e.waitUntil((async function(){var ks=await caches.keys();await Promise.all(ks.filter(function(k){return k!==C;}).map(function(k){return caches.delete(k);}));await self.clients.claim();})());});
-// versioned (?v=) URLs, pinned CDN assets, and map tiles never change for a given URL, so serve
-// them cache-FIRST: a returning visitor's repeat requests are answered by the SW and never reach
-// the Worker. (Everything else stays network-first so HTML/data stays fresh.)
-function immutable(u){return /[?&]v=/.test(u.search)||/unpkg\\.com|basemaps\\.cartocdn\\.com|tile\\.openstreetmap/.test(u.host);}
-self.addEventListener("fetch",function(e){var r=e.request;if(r.method!=="GET")return;var u=new URL(r.url);
-  if(immutable(u)){
-    e.respondWith(caches.match(r).then(function(m){return m||fetch(r).then(function(res){if(res&&res.status===200){var c=res.clone();caches.open(C).then(function(ca){ca.put(r,c);});}return res;});}));
-    return;
-  }
-  e.respondWith((async function(){
-    try{var res=await fetch(r);if(res&&res.status===200&&u.origin===location.origin){var c=res.clone();caches.open(C).then(function(ca){ca.put(r,c);});}return res;}
-    catch(err){var m=await caches.match(r);if(m)return m;throw err;}
-  })());
-});`;
 function cachePut(req, ctx, resp) {
   try { if (resp && resp.ok && ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(req, resp.clone())); } catch {}
   return resp;
@@ -61,28 +42,8 @@ export default {
       if (hit) return hit;
     }
 
-    // ── PWA: manifest, icons (from KV), service worker ──────────────────────────
-    if (url.pathname === "/manifest.webmanifest") {
-      return Response.json({
-        name: "SnoKing Food Safety", short_name: "Ratings",
-        description: "Restaurant food-safety inspection ratings map for King & Snohomish counties, WA",
-        start_url: "/", scope: "/", display: "standalone", orientation: "any",
-        background_color: "#0d1117", theme_color: "#0d1117",
-        icons: [
-          { src: "/icon-192.png?v=7", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=7", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=7", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        ],
-      }, { headers: { "Cache-Control": "public, max-age=86400" } });
-    }
-    if (/^\/icon-\d+\.png$/.test(url.pathname)) {
-      const buf = await env.REGIONS.get(url.pathname.slice(1), { type: "arrayBuffer" });
-      return buf ? new Response(buf, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" } })
-                 : new Response("not found", { status: 404 });
-    }
-    if (url.pathname === "/sw.js") {
-      return new Response(SW_JS, { headers: { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" } });
-    }
+    // PWA manifest, icons, and the service worker are now static files in /public, served
+    // straight from Cloudflare's edge (no Worker invocation) — see public/ + [assets] in wrangler.toml.
 
     if (url.pathname === "/ingest" && req.method === "POST") {
       if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN)

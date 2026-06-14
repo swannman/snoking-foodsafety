@@ -13,6 +13,12 @@ custom_domain = true
 pattern = "food.snoking.app"
 custom_domain = true
 
+# static files (icons, manifest, service worker) served straight from Cloudflare's edge —
+# these requests never invoke the Worker, so they don't count against the request quota.
+# The Worker still runs for any path with no matching asset (HTML pages + /api/*).
+[assets]
+directory = "./public"
+
 [observability]
 enabled = true
 
