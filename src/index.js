@@ -454,7 +454,7 @@ function wpColor(d){var v=d.wp;if(v==null)return"#555";v=Math.max(0,v);
 // green(better)↔red(worse) scale centered on 0.
 var CUMEAN={};
 function residOf(d){var mu=CUMEAN[d.cu];if(mu==null)return null;var base=d.ra!=null?d.ra:(d.r==null?null:d.r);return base==null?null:(mu-base);}
-var RD_STOPS=[[-1.3,[176,42,42]],[-0.5,[224,138,90]],[0,[150,156,164]],[0.5,[143,196,106]],[1.3,[31,150,79]]];   // worse … neutral … better
+var RD_STOPS=[[-1.3,[214,40,40]],[-0.5,[242,153,42]],[0,[150,156,164]],[0.5,[166,204,66]],[1.3,[30,150,76]]];   // distinct HUE per level: much worse=red, worse=orange, typical=gray, better=lime, much better=deep green
 function residColorAt(v){if(v==null)return"#555";v=Math.max(-1.3,Math.min(1.3,v));
   for(var i=0;i<RD_STOPS.length-1;i++){var a=RD_STOPS[i],b=RD_STOPS[i+1];if(v<=b[0]){var t=(v-a[0])/((b[0]-a[0])||1);
     return"rgb("+Math.round(a[1][0]+(b[1][0]-a[1][0])*t)+","+Math.round(a[1][1]+(b[1][1]-a[1][1])*t)+","+Math.round(a[1][2]+(b[1][2]-a[1][2])*t)+")";}}
@@ -469,7 +469,7 @@ function renderLegend(){
   else if(colorMode==="avg"){h='<h4>Avg of last 5 inspections</h4>';[[1,"Excellent (1.0)"],[2,"Good (2.0)"],[3,"Okay (3.0)"],[4,"Needs improve (4.0)"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+avgColor({ra:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no history</div>';}
   else if(colorMode==="poorfrac"){h='<h4>% routines Okay-or-worse</h4>';[[0,"0% — always clean"],[0.34,"~⅓ of routines"],[0.67,"~⅔ of routines"],[1,"100% — always poor"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+pfColor({pf:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no routine inspections</div>';}
   else if(colorMode==="age"){h='<h4>Years on record</h4>';AGE_PAL.forEach(function(c,i){h+='<div class="lg"><span class="sw" style="background:'+c+'"></span>'+AGE_LBL[i]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>unknown</div>';}
-  else if(colorMode==="resid"){h='<h4>vs cuisine norm</h4>';[[1.1,"much better than peers"],[0.5,"better"],[0,"typical for its cuisine"],[-0.5,"worse"],[-1.1,"much worse than peers"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+residColorAt(p[0])+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no rating</div>';}
+  else if(colorMode==="resid"){h='<h4>vs cuisine norm</h4>';[[1.3,"much better than peers"],[0.5,"better"],[0,"typical for its cuisine"],[-0.5,"worse"],[-1.3,"much worse than peers"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+residColorAt(p[0])+'"></span>'+p[1]+'</div>';});}
   else{h='<h4>Cuisine</h4>';var seen={};ALL.forEach(function(d){seen[cuGroup(d.cu)]=1;});GROUP_ORDER.filter(function(g){return seen[g]&&(fCuisine||(g!=="grocery"&&g!=="industry"&&g!=="other"));}).forEach(function(g){h+='<div class="lg"><span class="sw" style="background:'+(CU_COLOR[g]||"#555")+'"></span>'+(CU_LABEL[g]||g)+'</div>';});}
   el.innerHTML=h;
 }
@@ -654,7 +654,7 @@ function detailHtml(j){
   if(hist.length>1){h+='<div class="pp-sec"><h4>Inspection history</h4>';
     hist.slice(0,6).forEach(function(x){h+='<div class="hist"><span>'+fmtDate(x.date)+(x.label?' · '+esc(x.label):"")+'</span><span>'+(x.score!=null?x.score+" pts":"")+'</span></div>';});
     h+='</div>';}
-  if(j.report_url)h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">Official report →</a>';
+  if(j.report_url){var kcSearch=/kingcounty\.gov/.test(j.report_url);h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">'+(kcSearch?'Search King County ratings →':'Official report →')+'</a>';}
   return h;
 }
 function wirePopup(root,d){
@@ -754,7 +754,7 @@ map.on("popupopen",function(){popupOpen=true;clearTimeout(reCull);});
 map.on("popupclose",function(){popupOpen=false;if(emojiMode)drawMarkers(lastVis);});
 // register the service worker so the app is installable / works offline (PWA)
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});
-</script></body></html>`;
+</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
 
 // ============================ /stats — choropleth ============================
 // Average restaurant rating by census tract, with a demographic-residual mode
@@ -1016,7 +1016,7 @@ if(window.matchMedia("(max-width:720px)").matches) q("panel").classList.add("col
 q("head").onclick=function(e){if(e.target.closest("a"))return;   // let the "back" link navigate
   if(!window.matchMedia("(max-width:720px)").matches)return;   // collapse only on mobile
   q("panel").classList.toggle("collapsed");setTimeout(function(){map.invalidateSize();},210);};
-</script></body></html>`;
+</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
 
 // ============================ /bloopers — the funny reel ============================
 // Curated absurd inspector narratives (Snohomish v_memo), classified at ingest.
@@ -1079,7 +1079,7 @@ fetch("/api/bloopers").then(function(r){return r.json();}).then(function(j){
   render();
 });
 var t;document.getElementById("q").oninput=function(e){clearTimeout(t);var v=e.target.value.toLowerCase();t=setTimeout(function(){q=v;render();},160);};
-</script></body></html>`;
+</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
 
 // ============================ /about — methodology ============================
 const ABOUT_HTML = String.raw`<!doctype html>
@@ -1167,4 +1167,4 @@ const ABOUT_HTML = String.raw`<!doctype html>
     <li>King County: <a href="https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings" target="_blank" rel="noopener">food safety ratings lookup</a></li>
     <li>Snohomish County: <a href="https://www.snohd.org/169/Food-Safety-Program" target="_blank" rel="noopener">Snohomish County Health Department &mdash; Food Safety Program</a></li>
   </ul>
-</div></body></html>`;
+</div><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
