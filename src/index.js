@@ -521,7 +521,13 @@ function applyMetric(mode){
     function(v){fRange=v;render();},
     function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);
 }
-function reprOf(vm){var w=vm[0];for(var i=1;i<vm.length;i++)if(ratingOf(vm[i])>ratingOf(w))w=vm[i];return w;}  // worst-rated member represents the group
+// the cluster is represented by its WORST member ON THE ACTIVE shade metric, so the bubble's
+// color + emoji always match the worst item shown in the list popup. "Worseness" normalizes so
+// higher = worse (hiWorse:false metrics like the cuisine residual invert); no-data members score
+// -Infinity so a rated place always wins. Falls back to latest rating when no metric is active
+// (shade-by-cuisine), preserving the old worst-rated pick there.
+function reprWorseness(d){if(!METRIC)return ratingOf(d);var v=METRIC.val(d);if(v==null)return -Infinity;return (METRIC.hiWorse===false?-1:1)*v;}
+function reprOf(vm){var w=vm[0],wv=reprWorseness(w);for(var i=1;i<vm.length;i++){var v=reprWorseness(vm[i]);if(v>wv){wv=v;w=vm[i];}}return w;}
 // cluster establishments within thM metres into one location (sets d._loc). Sub-metre geocoding
 // differences round to different exact keys but still overlap at any zoom, so group by distance,
 // not an exact coordinate string. Grid-bucketed (cell≈thM) so it's ~O(n) for 15k points.
