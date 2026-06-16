@@ -676,16 +676,20 @@ function locListHtml(vm){
   var a=vm[0],h='<div class="pp-name">'+vm.length+' establishments here</div>';
   h+='<div class="pp-addr">'+esc(a.a||"")+(a.ci?", "+esc(a.ci):"")+(a.z?" "+esc(a.z):"")+'</div>';
   h+='<div style="max-height:250px;overflow:auto;margin-top:6px">';
-  vm.forEach(function(d,i){var r=ratingOf(d);
+  vm.forEach(function(d,i){
+    // color the disc + label by the ACTIVE shade metric (not always latest rating) so the popup
+    // matches the map bubble — e.g. in "Last routine rating" mode this shows each place's routine
+    // rating, the same metric the cluster color is computed from.
+    var disc=colorOf(d), lab=(METRIC&&METRIC.disp)?METRIC.disp(d):LABEL[ratingOf(d)];
     h+='<div class="loc-row" data-i="'+i+'" style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid #eee;cursor:pointer">'
-      +'<span style="width:22px;height:22px;border-radius:50%;background:'+COLOR[r]+';display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">'+(CU_EMOJI[d.cu]||"🍴")+'</span>'
-      +'<span style="flex:1;min-width:0"><b style="font-size:12.5px;color:#111">'+esc(d.n)+'</b><br><span style="color:#777;font-size:11px">'+LABEL[r]+' · '+(CU_LABEL[d.cu]||"Other")+'</span></span>'
+      +'<span style="width:22px;height:22px;border-radius:50%;background:'+disc+';display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">'+(CU_EMOJI[d.cu]||"🍴")+'</span>'
+      +'<span style="flex:1;min-width:0"><b style="font-size:12.5px;color:#111">'+esc(d.n)+'</b><br><span style="color:#777;font-size:11px">'+esc(lab)+' · '+(CU_LABEL[d.cu]||"Other")+'</span></span>'
       +'<span style="color:#bbb;font-size:16px">›</span></div>';});
   return h+'</div>';
 }
 function openLocPopup(loc,focusD,noPan){
   var vm=loc.m.filter(passes);if(!vm.length)return;
-  vm.sort(function(a,b){return ratingOf(b)-ratingOf(a)||a.n.localeCompare(b.n);});
+  vm.sort(function(a,b){return reprWorseness(b)-reprWorseness(a)||a.n.localeCompare(b.n);});   // worst-on-active-metric first (matches the cluster's representative color)
   var pop=L.popup({maxWidth:300,minWidth:280,autoPan:!noPan}).setLatLng([loc.la,loc.lo]).openOn(map);
   function showList(){pop.setContent(locListHtml(vm));setTimeout(function(){var root=pop.getElement();if(!root)return;
     root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});},0);}
