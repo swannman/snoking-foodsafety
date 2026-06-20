@@ -385,12 +385,12 @@ const MAP_HTML = String.raw`<!doctype html>
         <label>Shade by <span class="vals" id="emojihint" style="font-weight:400;color:var(--muted)"></span></label>
         <select id="colorby">
           <option value="rating">Rating (latest)</option>
-          <option value="changed">Recently changed (new + up/down)</option>
           <option value="routine">Last routine (ignores reinspections)</option>
           <option value="avg">Avg of last 5 inspections</option>
           <option value="worstpts">Worst inspection (points)</option>
           <option value="poorfrac">% routines Okay-or-worse (chronic)</option>
           <option value="resid">vs cuisine norm (over/under-performers)</option>
+          <option value="changed">Recently changed (new + up/down)</option>
           <option value="age">Years in operation</option>
           <option value="cuisine">Cuisine</option>
         </select>
