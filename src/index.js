@@ -760,7 +760,7 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   // range filter — follows the shade-by metric (rebuilt by applyMetric)
   applyMetric(colorMode);
   // shade-by dropdown: re-point the range filter at the new metric, then recolor
-  document.getElementById("colorby").onchange=function(){colorMode=this.value;applyMetric(colorMode);recolor();};
+  document.getElementById("colorby").onchange=function(){colorMode=this.value;applyMetric(colorMode);updateSortLabel();recolor();};
   if(j.updated){var u=new Date(j.updated);document.getElementById("upd").textContent="Updated "+(isNaN(u)?j.updated:u.toLocaleDateString());}
   render();renderLegend();
   var la=ALL.map(function(d){return d.la;}),lo=ALL.map(function(d){return d.lo;});
@@ -768,7 +768,10 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
 });
 var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();},180);};
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
-document.getElementById("sortdir").onclick=function(){sortDir=-sortDir;this.textContent=sortDir>0?"worst first":"best first";renderList();};
+// "recently changed" sorts by recency, so its label reads newest/oldest; every other metric reads worst/best
+function sortLabel(){return colorMode==="changed"?(sortDir>0?"newest first":"oldest first"):(sortDir>0?"worst first":"best first");}
+function updateSortLabel(){var el=document.getElementById("sortdir");if(el)el.textContent=sortLabel();}
+document.getElementById("sortdir").onclick=function(){sortDir=-sortDir;updateSortLabel();renderList();};
 // click the title bar to collapse/expand the filter+list panel (frees the map, esp. on mobile)
 document.getElementById("head").onclick=function(e){if(e.target.id==="q"||e.target.tagName==="INPUT"||e.target.closest(".statslink"))return;
   if(!window.matchMedia("(max-width:720px)").matches)return;   // collapse only on mobile
