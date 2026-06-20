@@ -145,7 +145,12 @@ export default {
       const { results } = await env.DB.prepare("SELECT city,date,tag,label,text FROM bloopers ORDER BY date DESC").all();
       return cachePut(req, ctx, Response.json({ count: (results || []).length, items: results || [] }, { headers: { "Cache-Control": "public, max-age=900" } }));
     }
-    if (url.pathname === "/bloopers") return new Response(BLOOPERS_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    if (url.pathname === "/bloopers") {
+      // stamp the data version so the client's /api/bloopers fetch is cache-busted whenever the
+      // data is re-ingested (the API response stays hard-cached, keyed by ?v=<updated_at>)
+      const v = (await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first())?.u || "0";
+      return new Response(BLOOPERS_HTML.replace("__DATA_VERSION__", encodeURIComponent(v)), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
+    }
     if (url.pathname === "/about") return new Response(ABOUT_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
 
     if (url.pathname === "/regions.geojson") {
@@ -1066,6 +1071,7 @@ const BLOOPERS_HTML = String.raw`<!doctype html>
 </div>
 <div id="grid"><div class="loading">Loading the good stuff…</div></div>
 <script>
+var DATA_VERSION="__DATA_VERSION__";
 var ALL=[],q="";
 function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
 function fmt(d){if(!d)return"";var x=new Date(d);return isNaN(x)?d:x.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});}
@@ -1080,7 +1086,7 @@ function render(){
   document.getElementById("count").textContent=list.length.toLocaleString()+(q?" matching":"")+" bloopers";
   document.getElementById("grid").innerHTML=list.length?list.map(card).join(""):'<div class="loading">No matches.</div>';
 }
-fetch("/api/bloopers").then(function(r){return r.json();}).then(function(j){
+fetch("/api/bloopers?v="+DATA_VERSION).then(function(r){return r.json();}).then(function(j){
   ALL=(j.items||[]);
   // light shuffle so it's not all one facility in a row, but keep it deterministic enough
   ALL.sort(function(a,b){return (a.date<b.date?1:a.date>b.date?-1:0)|| (a.text<b.text?-1:1);});
