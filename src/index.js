@@ -55,15 +55,21 @@ export default {
       const stmts = recs.slice(0, 1000).map((r) =>
         env.DB.prepare(
           `INSERT INTO establishments
-             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(id) DO UPDATE SET
              county=excluded.county, name=excluded.name, address=excluded.address, city=excluded.city,
-             zip=excluded.zip, lat=excluded.lat, lon=excluded.lon, cuisine=excluded.cuisine, rating=excluded.rating,
+             zip=excluded.zip, lat=excluded.lat, lon=excluded.lon, cuisine=excluded.cuisine,
              rating_label=excluded.rating_label, grade=excluded.grade, score=excluded.score, result=excluded.result,
              inspect_date=excluded.inspect_date, first_date=excluded.first_date, report_url=excluded.report_url,
              detail=excluded.detail, rating_avg=excluded.rating_avg, rating_avg_all=excluded.rating_avg_all,
-             rating_routine=excluded.rating_routine, rating_worst=excluded.rating_worst, poor_frac=excluded.poor_frac, worst_points=excluded.worst_points, tract_id=excluded.tract_id, updated_at=excluded.updated_at`
+             rating_routine=excluded.rating_routine, rating_worst=excluded.rating_worst, poor_frac=excluded.poor_frac, worst_points=excluded.worst_points, tract_id=excluded.tract_id, updated_at=excluded.updated_at,
+             -- track rating changes: when the rating actually moves, remember the prior value and
+             -- stamp the change with the new inspection date (these RHS see the OLD row in SQLite,
+             -- so this is evaluated before rating itself is overwritten on the next line)
+             prev_rating=CASE WHEN excluded.rating IS NOT establishments.rating THEN establishments.rating ELSE establishments.prev_rating END,
+             rating_changed_at=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.inspect_date ELSE establishments.rating_changed_at END,
+             rating=excluded.rating`
         ).bind(
           r.id, r.county, r.name, r.address ?? null, r.city ?? null, r.zip ?? null, r.lat ?? null, r.lon ?? null,
           r.cuisine ?? null, r.rating ?? null, r.rating != null ? RATING_LABEL[r.rating] ?? null : null,
@@ -71,7 +77,8 @@ export default {
           r.report_url ?? null, typeof r.detail === "string" ? r.detail : JSON.stringify(r.detail ?? {}),
           r.rating_avg ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history),
           r.rating_avg_all ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history, 99),
-          r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null, now
+          r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null,
+          null, r.inspect_date ?? null, now
         )
       );
       for (let i = 0; i < stmts.length; i += 25) await env.DB.batch(stmts.slice(i, i + 25));
@@ -185,13 +192,13 @@ export default {
 
     if (url.pathname === "/api/establishments") {
       const { results } = await env.DB.prepare(
-        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date
+        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at
          FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
       ).all();
       const items = (results || []).map((r) => ({
         id: r.id, co: r.county === "king" ? "k" : "s", n: r.name, a: r.address, ci: r.city, z: r.zip,
         la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
-        g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date,
+        g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at,
       }));
       const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
       return cachePut(req, ctx, Response.json({ updated: upd?.u ?? null, count: items.length, items }, {
@@ -377,6 +384,7 @@ const MAP_HTML = String.raw`<!doctype html>
         <label>Shade by <span class="vals" id="emojihint" style="font-weight:400;color:var(--muted)"></span></label>
         <select id="colorby">
           <option value="rating">Rating (latest)</option>
+          <option value="changed">Recently changed (new + up/down)</option>
           <option value="routine">Last routine (ignores reinspections)</option>
           <option value="avg">Avg of last 5 inspections</option>
           <option value="worstpts">Worst inspection (points)</option>
@@ -465,7 +473,18 @@ function residColorAt(v){if(v==null)return"#555";v=Math.max(-1.3,Math.min(1.3,v)
     return"rgb("+Math.round(a[1][0]+(b[1][0]-a[1][0])*t)+","+Math.round(a[1][1]+(b[1][1]-a[1][1])*t)+","+Math.round(a[1][2]+(b[1][2]-a[1][2])*t)+")";}}
   return"rgb(31,150,79)";}
 function residColor(d){return residColorAt(residOf(d));}
+// ── recent rating changes ───────────────────────────────────────────────────
+// cd = rating_changed_at (date the current rating took effect), pr = prev_rating (the rating
+// before that change, null if this is a first/new rating). Tracked server-side at ingest, so it
+// only fills in as ratings actually move from here forward.
+function daysSince(s){if(!s)return null;var t=Date.parse(s);if(isNaN(t))return null;return Math.floor((Date.now()-t)/86400000);}
+function changeKind(d){if(d.cd==null)return null;if(d.pr==null)return"new";if(d.r==null)return null;if(d.r<d.pr)return"up";if(d.r>d.pr)return"down";return"same";}
+function changeColor(d){var k=changeKind(d);if(k==="up")return"#2ecc71";if(k==="down")return"#e5484d";if(k==="new")return COLOR[ratingOf(d)];return"#7d8590";}
+function changeGlyph(d){var k=changeKind(d);return k==="up"?"↑":k==="down"?"↓":(CU_EMOJI[d.cu]||"🍴");}
+function agoTxt(s){var n=daysSince(s);return n==null?"":n<=0?"today":n===1?"yesterday":n+"d ago";}
+function changeText(d){var k=changeKind(d),w=agoTxt(d.cd);if(k==="new")return"New · "+LABEL[ratingOf(d)]+(w?" · "+w:"");if(k==="up")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↑"+(w?" · "+w:"");if(k==="down")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↓"+(w?" · "+w:"");return"changed"+(w?" · "+w:"");}
 function colorOf(d){if(colorMode==="cuisine")return CU_COLOR[cuGroup(d.cu)]||"#555";if(colorMode==="age")return ageColor(d);if(colorMode==="avg")return avgColor(d);
+  if(colorMode==="changed")return changeColor(d);
   if(colorMode==="routine")return COLOR[d.rr==null?0:d.rr];if(colorMode==="worstpts")return wpColor(d);if(colorMode==="poorfrac")return pfColor(d);if(colorMode==="resid")return residColor(d);return COLOR[ratingOf(d)];}
 function renderLegend(){
   var el=document.getElementById("legend"),h="";
@@ -475,6 +494,11 @@ function renderLegend(){
   else if(colorMode==="poorfrac"){h='<h4>% routines Okay-or-worse</h4>';[[0,"0% — always clean"],[0.34,"~⅓ of routines"],[0.67,"~⅔ of routines"],[1,"100% — always poor"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+pfColor({pf:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no routine inspections</div>';}
   else if(colorMode==="age"){h='<h4>Years on record</h4>';AGE_PAL.forEach(function(c,i){h+='<div class="lg"><span class="sw" style="background:'+c+'"></span>'+AGE_LBL[i]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>unknown</div>';}
   else if(colorMode==="resid"){h='<h4>vs cuisine norm</h4>';[[1.3,"much better than peers"],[0.5,"better"],[0,"typical for its cuisine"],[-0.5,"worse"],[-1.3,"much worse than peers"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+residColorAt(p[0])+'"></span>'+p[1]+'</div>';});}
+  else if(colorMode==="changed"){h='<h4>Recently changed</h4>';
+    h+='<div class="lg"><span class="sw" style="background:#2ecc71"></span>improved ↑</div>';
+    h+='<div class="lg"><span class="sw" style="background:#e5484d"></span>declined ↓</div>';
+    h+='<div class="lg" style="margin-top:5px;font-size:10px;color:var(--muted)">new rating (by grade):</div>';
+    [1,2,3,4].forEach(function(r){h+='<div class="lg"><span class="sw" style="background:'+COLOR[r]+'"></span>'+LABEL[r]+'</div>';});}
   else{h='<h4>Cuisine</h4>';var seen={};ALL.forEach(function(d){seen[cuGroup(d.cu)]=1;});GROUP_ORDER.filter(function(g){return seen[g]&&(fCuisine||(g!=="grocery"&&g!=="industry"&&g!=="other"));}).forEach(function(g){h+='<div class="lg"><span class="sw" style="background:'+(CU_COLOR[g]||"#555")+'"></span>'+(CU_LABEL[g]||g)+'</div>';});}
   el.innerHTML=h;
 }
@@ -511,7 +535,12 @@ function buildMetrics(){MET={
   // residual is signed: POSITIVE = better than the cuisine's mean. hiWorse:false flips the list sort.
   resid:{label:"vs cuisine norm",min:-1.3,max:1.3,step:0.1,hiWorse:false,val:function(d){return residOf(d);},
     fmt:function(a,b){return a.toFixed(1)+" … "+b.toFixed(1)+" vs peers";},
-    disp:function(d){var v=residOf(d);return v==null?"no rating":(v>=0?"+":"")+v.toFixed(2)+" vs "+(CU_LABEL[d.cu]||"cuisine")+" norm";}}
+    disp:function(d){var v=residOf(d);return v==null?"no rating":(v>=0?"+":"")+v.toFixed(2)+" vs "+(CU_LABEL[d.cu]||"cuisine")+" norm";}},
+  // recency of the last rating change; hiWorse:false sorts the most-recent change to the top.
+  // def opens the slider to the last 30 days; widen toward 90 to see more history.
+  changed:{label:"Changed in last (days)",min:0,max:90,step:1,hiWorse:false,def:[0,30],val:function(d){return daysSince(d.cd);},
+    fmt:function(a,b){return a+"–"+(b>=90?"90+":b)+" days ago";},
+    disp:function(d){return changeText(d);}}
 };}
 // switch the range filter to the metric matching the current shade-by mode; rebuilds the slider
 // and resets the range to fully-open. Caller re-renders.
@@ -521,8 +550,8 @@ function applyMetric(mode){
   if(!METRIC){field.style.display="none";return;}
   field.style.display="";
   document.getElementById("rlabel").textContent=METRIC.label;
-  fRange=[METRIC.min,METRIC.max];
-  dualSlider(document.getElementById("rslider"),METRIC.min,METRIC.max,[METRIC.min,METRIC.max],
+  fRange=METRIC.def?METRIC.def.slice():[METRIC.min,METRIC.max];
+  dualSlider(document.getElementById("rslider"),METRIC.min,METRIC.max,fRange.slice(),
     function(v){fRange=v;render();},
     function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);
 }
@@ -566,6 +595,7 @@ function passes(d){
   if(colorMode==="cuisine"&&!fCuisine){var g=cuGroup(d.cu);if(g==="grocery"||g==="industry"||g==="other")return false;}   // hide non-cuisine groups in cuisine view
   if(colorMode==="worstpts"&&d.wp==null) return false;     // no inspections — hide from worst-points view
   if(colorMode==="poorfrac"&&d.pf==null) return false;     // no routine inspections — hide from chronic view
+  if(colorMode==="changed"&&d.cd==null) return false;      // no tracked rating change — hide from recent-changes view
   if(METRIC){                                              // range filter follows the shade-by metric
     var v=METRIC.val(d), full=(fRange[0]<=METRIC.min&&fRange[1]>=METRIC.max);
     if(v==null){ if(!full) return false; }                 // no value for this metric: only when fully open
@@ -604,7 +634,7 @@ function drawMarkers(idx){
       layer.addLayer(mk);}
   }
 }
-function emojiIcon(loc){var vm=loc._vm,rp=reprOf(vm),col=colorOf(rp),em=CU_EMOJI[rp.cu]||"🍴",n=vm.length;
+function emojiIcon(loc){var vm=loc._vm,rp=reprOf(vm),col=colorOf(rp),em=colorMode==="changed"?changeGlyph(rp):(CU_EMOJI[rp.cu]||"🍴"),n=vm.length;
   var badge=n>1?'<div style="position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#111;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;box-shadow:0 0 0 1.5px #fff">'+n+'</div>':'';
   // 38px element (bigger touch target) with the 26px colored disc centered; whole element taps
   return L.divIcon({className:"em",iconSize:[38,38],iconAnchor:[19,19],popupAnchor:[0,-16],

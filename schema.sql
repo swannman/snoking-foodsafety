@@ -25,7 +25,10 @@ CREATE TABLE IF NOT EXISTS establishments (
   rating_routine INTEGER,          -- rating of the most recent ROUTINE inspection (ignores reinspections)
   rating_worst INTEGER,            -- worst (highest) rating across all stored inspections
   poor_frac    REAL,               -- fraction of routine inspections rated Okay-or-worse (0..1, chronic-offender signal)
+  worst_points REAL,               -- highest single-inspection point score on record (worst inspection)
   tract_id     TEXT,               -- census tract region_id (point-in-polygon), for the stats choropleth
+  prev_rating  INTEGER,            -- the rating before the most recent change (NULL = first/new rating); set by the upsert
+  rating_changed_at TEXT,          -- inspect_date when the current rating took effect (powers the "recently changed" view)
   updated_at   TEXT                -- ingest timestamp (ISO8601)
 );
 -- Funny inspector narratives (Snohomish v_memo), curated at ingest -> the /bloopers reel.
