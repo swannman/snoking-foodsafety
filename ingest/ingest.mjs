@@ -52,6 +52,9 @@ async function getJson(url, opts = {}, tries = 4) {
 const RATING_LABEL = { 1: "Excellent", 2: "Good", 3: "Okay", 4: "Needs to Improve" };
 const dstr = (s) => (s ? String(s).slice(0, 10) : null);
 const pointRating = (p) => (p == null || isNaN(p) ? null : p <= 0 ? 1 : p <= 15 ? 2 : p <= 35 ? 3 : 4);
+// classify the inspection type that set the current rating, so the "recently changed" view can
+// say whether a change came from a fresh routine (the meaningful kind) vs a reinspection.
+const classifySvc = (s) => { if (!s) return null; s = String(s); return /RE-?INSPECT|REINSPECT|FOLLOW.?UP|RECHECK|RETURN/i.test(s) ? "reinspection" : /ROUTINE/i.test(s) ? "routine" : "other"; };
 function avgRating(history, n = 5) {   // mean rating over the most recent N inspections (newest-first)
   const rs = (history || []).map((h) => pointRating(h.score)).filter((r) => r != null).slice(0, n);
   return rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 100) / 100 : null;
@@ -176,6 +179,8 @@ async function king() {
       cuisine,
       rating, grade,
       score: latestScore, result: latest ? (latest.Inspection_Result || null) : null,
+      // graded King ratings are a rolling average, not one inspection -> "grade"; ungraded ones track the latest inspection
+      rating_svc: grade != null ? "grade" : classifySvc(latest ? latest.Inspection_Type : null),
       inspect_date: latest ? dstr(latest.Inspection_Date) : null, first_date,
       report_url: "https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings",
       rating_avg: ravg, rating_avg_all: avgRating(history, 99),
@@ -341,6 +346,8 @@ async function snohomish() {
       id: "sno:" + f.FacilityId, county: "snohomish", name: (f.FacilityName || "").trim(),
       address: (f.Address || "").replace(/\s+/g, " ").trim(), city, zip, lat: null, lon: null,
       cuisine: cuisineOf(f.FacilityName), rating, grade: null, score,
+      // Snohomish rating tracks the latest ROUTINE (reinspections never move it), so this is ~always "routine"
+      rating_svc: classifySvc(latest ? latest.service : null),
       result: null, inspect_date: latest ? dstr(latest.activity_date) : null, first_date: firstDate,
       report_url: SNO_API.replace("/api/pressAgentClient", "") + "/#/pa1/detail/" + f.FacilityId +
         (progCache[f.FacilityId]?.programId ? "/" + progCache[f.FacilityId].programId : ""),

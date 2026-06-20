@@ -55,8 +55,8 @@ export default {
       const stmts = recs.slice(0, 1000).map((r) =>
         env.DB.prepare(
           `INSERT INTO establishments
-             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,change_svc,updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(id) DO UPDATE SET
              county=excluded.county, name=excluded.name, address=excluded.address, city=excluded.city,
              zip=excluded.zip, lat=excluded.lat, lon=excluded.lon, cuisine=excluded.cuisine,
@@ -69,6 +69,7 @@ export default {
              -- so this is evaluated before rating itself is overwritten on the next line)
              prev_rating=CASE WHEN excluded.rating IS NOT establishments.rating THEN establishments.rating ELSE establishments.prev_rating END,
              rating_changed_at=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.inspect_date ELSE establishments.rating_changed_at END,
+             change_svc=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.change_svc ELSE establishments.change_svc END,
              rating=excluded.rating`
         ).bind(
           r.id, r.county, r.name, r.address ?? null, r.city ?? null, r.zip ?? null, r.lat ?? null, r.lon ?? null,
@@ -78,7 +79,7 @@ export default {
           r.rating_avg ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history),
           r.rating_avg_all ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history, 99),
           r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null,
-          null, r.inspect_date ?? null, now
+          null, r.inspect_date ?? null, r.rating_svc ?? null, now
         )
       );
       for (let i = 0; i < stmts.length; i += 25) await env.DB.batch(stmts.slice(i, i + 25));
@@ -192,13 +193,13 @@ export default {
 
     if (url.pathname === "/api/establishments") {
       const { results } = await env.DB.prepare(
-        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at
+        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc
          FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
       ).all();
       const items = (results || []).map((r) => ({
         id: r.id, co: r.county === "king" ? "k" : "s", n: r.name, a: r.address, ci: r.city, z: r.zip,
         la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
-        g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at,
+        g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at, cs: r.change_svc,
       }));
       const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
       return cachePut(req, ctx, Response.json({ updated: upd?.u ?? null, count: items.length, items }, {
@@ -482,7 +483,8 @@ function changeKind(d){if(d.cd==null)return null;if(d.pr==null)return"new";if(d.
 function changeColor(d){var k=changeKind(d);if(k==="up")return"#2ecc71";if(k==="down")return"#e5484d";if(k==="new")return COLOR[ratingOf(d)];return"#7d8590";}
 function changeGlyph(d){var k=changeKind(d);return k==="up"?"↑":k==="down"?"↓":(CU_EMOJI[d.cu]||"🍴");}
 function agoTxt(s){var n=daysSince(s);return n==null?"":n<=0?"today":n===1?"yesterday":n+"d ago";}
-function changeText(d){var k=changeKind(d),w=agoTxt(d.cd);if(k==="new")return"New · "+LABEL[ratingOf(d)]+(w?" · "+w:"");if(k==="up")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↑"+(w?" · "+w:"");if(k==="down")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↓"+(w?" · "+w:"");return"changed"+(w?" · "+w:"");}
+function svcLabel(cs){return cs==="routine"?"routine":cs==="reinspection"?"reinspection":cs==="grade"?"grade update":"";}
+function changeText(d){var k=changeKind(d),sv=svcLabel(d.cs),w=agoTxt(d.cd),tail=(sv?" · "+sv:"")+(w?" · "+w:"");if(k==="new")return"New · "+LABEL[ratingOf(d)]+tail;if(k==="up")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↑"+tail;if(k==="down")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↓"+tail;return"changed"+tail;}
 function colorOf(d){if(colorMode==="cuisine")return CU_COLOR[cuGroup(d.cu)]||"#555";if(colorMode==="age")return ageColor(d);if(colorMode==="avg")return avgColor(d);
   if(colorMode==="changed")return changeColor(d);
   if(colorMode==="routine")return COLOR[d.rr==null?0:d.rr];if(colorMode==="worstpts")return wpColor(d);if(colorMode==="poorfrac")return pfColor(d);if(colorMode==="resid")return residColor(d);return COLOR[ratingOf(d)];}

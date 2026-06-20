@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS establishments (
   tract_id     TEXT,               -- census tract region_id (point-in-polygon), for the stats choropleth
   prev_rating  INTEGER,            -- the rating before the most recent change (NULL = first/new rating); set by the upsert
   rating_changed_at TEXT,          -- inspect_date when the current rating took effect (powers the "recently changed" view)
+  change_svc   TEXT,               -- type of inspection that set the current rating: 'routine'|'reinspection'|'grade'|'other'
+
   updated_at   TEXT                -- ingest timestamp (ISO8601)
 );
 -- Funny inspector narratives (Snohomish v_memo), curated at ingest -> the /bloopers reel.
