@@ -22,6 +22,12 @@ directory = "./public"
 [observability]
 enabled = true
 
+# Web Push: public VAPID key (safe to commit) + contact subject. Private key is the
+# VAPID_PRIVATE_JWK secret (wrangler secret put). The same public key is embedded client-side.
+[vars]
+VAPID_PUBLIC = "BLUPpCG20smyXKX1k3fCvNd-7VyRHWjpIriPjy56_yc2-GotKcWD750ID015AQa4yYwdZSjBeq-LRBl3eEz0F9I"
+VAPID_SUBJECT = "mailto:alerts@snoking.app"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "snoking-foodsafety"

@@ -41,3 +41,11 @@ jobs:
           GOOGLE_KEY: ${{ secrets.GOOGLE_KEY }}
         # --king-only when manually requested, or on any scheduled day except the Monday full run
         run: node ingest.mjs ${{ ((github.event_name == 'workflow_dispatch' && inputs.king_only) || github.event.schedule == '30 11 * * 0,2,3,4,5,6') && '--king-only' || '' }}
+      # push a notification to anyone who favorited a restaurant whose rating just changed
+      - name: Dispatch favorite-change notifications
+        if: success()
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          curl -fsS -X POST "https://snoking-foodsafety.3lemenopy.workers.dev/push/dispatch" \
+            -H "Authorization: Bearer $INGEST_TOKEN" && echo " (dispatch ok)" || echo " (dispatch failed, non-fatal)"

@@ -9,6 +9,7 @@
 //   POST /ingest  (Bearer)      -> bulk upsert from the external ingester
 // Secrets: INGEST_TOKEN, GOOGLE_KEY (optional — Street View is hidden without it).
 
+import { sendPush } from "./webpush.js";
 const RATING_LABEL = { 1: "Excellent", 2: "Good", 3: "Okay", 4: "Needs to Improve" };
 // per-inspection rating from its violation points (lower=better); shared by both counties
 const pointRating = (p) => (p == null || isNaN(p) ? null : p <= 0 ? 1 : p <= 15 ? 2 : p <= 35 ? 3 : 4);
@@ -22,6 +23,50 @@ function ratingRoutineOf(h) { for (const x of h || []) if (isRoutine(x.svc)) { c
 function ratingWorstOf(h) { let w = null; for (const x of h || []) { const r = pointRating(x.score); if (r != null && (w == null || r > w)) w = r; } return w; }
 function poorFracOf(h) { const s = (h || []).filter((x) => isRoutine(x.svc) && pointRating(x.score) != null); return s.length ? Math.round((s.filter((x) => pointRating(x.score) >= 3).length / s.length) * 1000) / 1000 : null; }
 function worstPointsOf(h) { let w = null; for (const x of h || []) if (x.score != null && (w == null || x.score > w)) w = x.score; return w; }
+
+// ── push notifications ────────────────────────────────────────────────────────
+async function sha256hex(s) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function buildPayload(chs) {
+  const L = RATING_LABEL, dir = (c) => (c.pr == null ? "new" : c.r < c.pr ? "↑" : "↓");
+  if (chs.length === 1) {
+    const c = chs[0];
+    return { title: "⭐ " + c.name, body: c.pr == null ? "New rating: " + L[c.r] : L[c.pr] + " → " + L[c.r] + " " + dir(c), url: "/?focus=" + encodeURIComponent(c.id) };
+  }
+  return { title: "⭐ " + chs.length + " favorites updated", body: chs.slice(0, 3).map((c) => c.name + " " + dir(c)).join(", ") + (chs.length > 3 ? "…" : ""), url: "/?changed=1" };
+}
+// Find newly-detected rating changes that someone favorited, send one batched push per subscriber,
+// prune dead subscriptions, and mark the changes notified so they don't fire twice.
+async function dispatchPush(env) {
+  const { results: changes } = await env.DB.prepare(
+    `SELECT e.id, e.name, e.prev_rating AS pr, e.rating AS r, e.change_svc AS cs
+     FROM establishments e
+     WHERE e.change_detected_at IS NOT NULL AND (e.notified_at IS NULL OR e.notified_at < e.change_detected_at)
+       AND EXISTS (SELECT 1 FROM push_favorites f WHERE f.est_id = e.id)`
+  ).all();
+  if (!changes || !changes.length) return { changes: 0, subscribers: 0, sent: 0, dead: 0 };
+  const bySub = new Map();
+  for (const ch of changes) {
+    const { results: subs } = await env.DB.prepare("SELECT sub_id FROM push_favorites WHERE est_id=?").bind(ch.id).all();
+    for (const s of subs || []) (bySub.get(s.sub_id) || bySub.set(s.sub_id, []).get(s.sub_id)).push(ch);
+  }
+  let sent = 0, dead = 0;
+  for (const subId of bySub.keys()) {
+    const row = await env.DB.prepare("SELECT endpoint,p256dh,auth FROM push_subs WHERE id=?").bind(subId).first();
+    if (!row) continue;
+    let status; try { status = await sendPush({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, buildPayload(bySub.get(subId)), env); } catch { status = 0; }
+    if (status === 201 || status === 200) sent++;
+    else if (status === 404 || status === 410) { dead++; await env.DB.batch([env.DB.prepare("DELETE FROM push_favorites WHERE sub_id=?").bind(subId), env.DB.prepare("DELETE FROM push_subs WHERE id=?").bind(subId)]); }
+    else await env.DB.prepare("UPDATE push_subs SET fail_count=fail_count+1 WHERE id=?").bind(subId).run();
+  }
+  // mark ALL freshly-detected changes processed (even ones nobody favorited yet), so favoriting a
+  // place later never triggers a push about a change that already happened.
+  const now = new Date().toISOString();
+  await env.DB.prepare("UPDATE establishments SET notified_at=? WHERE change_detected_at IS NOT NULL AND (notified_at IS NULL OR notified_at < change_detected_at)").bind(now).run();
+  return { changes: changes.length, subscribers: bySub.size, sent, dead };
+}
 
 // Read endpoints are immutable per data version (client appends ?v=<updated_at>), so they're
 // safe to store in Cloudflare's edge cache. Without this every unique visitor re-runs the
@@ -45,6 +90,38 @@ export default {
     // PWA manifest, icons, and the service worker are now static files in /public, served
     // straight from Cloudflare's edge (no Worker invocation) — see public/ + [assets] in wrangler.toml.
 
+    if (url.pathname === "/push/subscribe" && req.method === "POST") {
+      let b; try { b = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
+      const sub = b && b.subscription, favs = Array.isArray(b && b.favorites) ? b.favorites : [];
+      if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) return new Response("bad subscription", { status: 400 });
+      const id = await sha256hex(sub.endpoint), now = new Date().toISOString();
+      await env.DB.prepare("INSERT INTO push_subs (id,endpoint,p256dh,auth,created_at,last_seen,fail_count) VALUES (?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET endpoint=excluded.endpoint,p256dh=excluded.p256dh,auth=excluded.auth,last_seen=excluded.last_seen,fail_count=0")
+        .bind(id, sub.endpoint, sub.keys.p256dh, sub.keys.auth, now, now).run();
+      await env.DB.prepare("DELETE FROM push_favorites WHERE sub_id=?").bind(id).run();
+      const clean = favs.filter((x) => typeof x === "string").slice(0, 500);
+      const stmts = clean.map((est) => env.DB.prepare("INSERT OR IGNORE INTO push_favorites (sub_id,est_id) VALUES (?,?)").bind(id, est));
+      for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+      return Response.json({ ok: true, favorites: clean.length });
+    }
+    if (url.pathname === "/push/unsubscribe" && req.method === "POST") {
+      let b; try { b = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
+      if (!b || !b.endpoint) return new Response("bad request", { status: 400 });
+      const id = await sha256hex(b.endpoint);
+      await env.DB.batch([env.DB.prepare("DELETE FROM push_favorites WHERE sub_id=?").bind(id), env.DB.prepare("DELETE FROM push_subs WHERE id=?").bind(id)]);
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === "/push/dispatch" && req.method === "POST") {
+      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
+      return Response.json(await dispatchPush(env));
+    }
+    if (url.pathname === "/push/test" && req.method === "POST") {
+      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
+      let b; try { b = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
+      if (!b.subscription) return new Response("need subscription", { status: 400 });
+      const status = await sendPush(b.subscription, b.payload || { title: "SnoKing test 🔔", body: "Push notifications are working.", url: "/" }, env);
+      return Response.json({ status });
+    }
+
     if (url.pathname === "/ingest" && req.method === "POST") {
       if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN)
         return new Response("unauthorized", { status: 401 });
@@ -55,8 +132,8 @@ export default {
       const stmts = recs.slice(0, 1000).map((r) =>
         env.DB.prepare(
           `INSERT INTO establishments
-             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,change_svc,updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,change_svc,change_detected_at,notified_at,updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(id) DO UPDATE SET
              county=excluded.county, name=excluded.name, address=excluded.address, city=excluded.city,
              zip=excluded.zip, lat=excluded.lat, lon=excluded.lon, cuisine=excluded.cuisine,
@@ -70,6 +147,7 @@ export default {
              prev_rating=CASE WHEN excluded.rating IS NOT establishments.rating THEN establishments.rating ELSE establishments.prev_rating END,
              rating_changed_at=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.inspect_date ELSE establishments.rating_changed_at END,
              change_svc=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.change_svc ELSE establishments.change_svc END,
+             change_detected_at=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.updated_at ELSE establishments.change_detected_at END,
              rating=excluded.rating`
         ).bind(
           r.id, r.county, r.name, r.address ?? null, r.city ?? null, r.zip ?? null, r.lat ?? null, r.lon ?? null,
@@ -79,7 +157,7 @@ export default {
           r.rating_avg ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history),
           r.rating_avg_all ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history, 99),
           r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null,
-          null, r.inspect_date ?? null, r.rating_svc ?? null, now
+          null, r.inspect_date ?? null, r.rating_svc ?? null, now, null, now
         )
       );
       for (let i = 0; i < stmts.length; i += 25) await env.DB.batch(stmts.slice(i, i + 25));
@@ -373,7 +451,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="statslink" id="favtog" role="button" title="Show only my saved favorites" aria-label="Favorites" style="font-size:16px">☆</span> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <input id="q" placeholder="Search name or address…" autocomplete="off">
@@ -593,6 +671,7 @@ function dualSlider(el,min,max,init,onChange,fmt,step){
 
 // ── filtering ─────────────────────────────────────────────────────────────────
 function passes(d){
+  if(favOnly && !isFav(d.id)) return false;
   if(fCuisine && d.cu!==fCuisine) return false;
   if(colorMode==="cuisine"&&!fCuisine){var g=cuGroup(d.cu);if(g==="grocery"||g==="industry"||g==="other")return false;}   // hide non-cuisine groups in cuisine view
   if(colorMode==="worstpts"&&d.wp==null) return false;     // no inspections — hide from worst-points view
@@ -670,6 +749,7 @@ function popupShell(d){
   var r=ratingOf(d),h='<img class="sv" src="/streetview?lat='+d.la+'&lon='+d.lo+'" onerror="this.style.display=\'none\'" data-lat="'+d.la+'" data-lon="'+d.lo+'" title="Click for 360° view">';
   h+='<div class="pp-name">'+esc(d.n)+'</div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
+  h+='<button class="favbtn" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="margin-left:7px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:#0d1117;color:'+(isFav(d.id)?"#f5b301":"#8b949e")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</button>';
   h+='<div class="pp-addr">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+(d.z?" "+esc(d.z):"")+'</div>';
   h+='<div class="pp-meta">'+COUNTY[d.co]+' · '+(CU_LABEL[d.cu]||"Other")+'</div>';
   if(d.co==="k"&&d.g!=null) h+='<div class="pp-meta">Grade <b>'+d.g+'</b> ('+LABEL[d.g]+')'+(d.rs?" · "+esc(d.rs):"")+'</div>';
@@ -706,6 +786,8 @@ function wirePopup(root,d){
     fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);}).catch(function(){box.innerHTML="";});}
   var sv=root.querySelector(".sv");
   if(sv)sv.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var f=document.createElement("iframe");f.src="/sv-embed?lat="+d.la+"&lon="+d.lo;f.style.cssText="width:100%;height:150px;border:0;border-radius:6px;display:block;margin-bottom:7px";sv.parentNode.replaceChild(f,sv);};
+  var fb=root.querySelector(".favbtn");
+  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.color=on?"#f5b301":"#8b949e";};
 }
 function bindPopupOpen(m,d){m.on("popupopen",function(e){wirePopup(e.popup.getElement(),d);});}
 // popup for a location: 1 establishment -> its detail; several -> a tappable list -> drill into detail
@@ -765,6 +847,7 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   render();renderLegend();
   var la=ALL.map(function(d){return d.la;}),lo=ALL.map(function(d){return d.lo;});
   if(ALL.length)map.fitBounds([[Math.min.apply(0,la),Math.min.apply(0,lo)],[Math.max.apply(0,la),Math.max.apply(0,lo)]],{padding:[20,20]});
+  applyUrlIntent();
 });
 var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();},180);};
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
@@ -801,6 +884,41 @@ map.on("moveend",function(){renderList();   // list follows the visible map regi
   if(!emojiMode)return;clearTimeout(reCull);reCull=setTimeout(function(){if(emojiMode&&!popupOpen)drawMarkers(lastVis);},220);});
 map.on("popupopen",function(){popupOpen=true;clearTimeout(reCull);});
 map.on("popupclose",function(){popupOpen=false;if(emojiMode)drawMarkers(lastVis);});
+// ── favorites (stored locally, no login) + push alerts ──
+var FAVKEY="snoking_favs", favOnly=false, VAPID_PUBLIC="BLUPpCG20smyXKX1k3fCvNd-7VyRHWjpIriPjy56_yc2-GotKcWD750ID015AQa4yYwdZSjBeq-LRBl3eEz0F9I";
+function getFavs(){try{return JSON.parse(localStorage.getItem(FAVKEY)||"[]");}catch(e){return [];}}
+function isFav(id){return getFavs().indexOf(id)>=0;}
+function toggleFav(id){var f=getFavs(),i=f.indexOf(id);if(i>=0)f.splice(i,1);else f.push(id);localStorage.setItem(FAVKEY,JSON.stringify(f));syncPush();if(favOnly)render();return i<0;}
+function updateFavTog(){var el=document.getElementById("favtog");if(el){el.textContent=favOnly?"★":"☆";el.style.color=favOnly?"#f5b301":"";}}
+function urlB64ToU8(s){var pad="=".repeat((4-s.length%4)%4),b=atob((s+pad).replace(/-/g,"+").replace(/_/g,"/")),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+function pushOn(){return localStorage.getItem("snoking_push")==="1";}
+function updateBell(){var el=document.getElementById("bell");if(el)el.style.opacity=pushOn()?"1":".4";}
+function getSub(){return ("serviceWorker" in navigator)?navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}):Promise.resolve(null);}
+function syncPush(){if(!pushOn())return;getSub().then(function(sub){if(!sub)return;fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),favorites:getFavs()})}).catch(function(){});});}
+function iOS(){return /iP(hone|ad|od)/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);}
+function standalone(){return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;}
+function enablePush(){
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)){alert("This browser doesn't support web notifications.");return;}
+  if(iOS()&&!standalone()){alert("On iPhone/iPad: tap Share → \"Add to Home Screen\", then open SnoKing from the new icon to turn on alerts.");return;}
+  if(!getFavs().length){alert("Tap a restaurant and ★ Save it first — then I can alert you when its rating changes.");return;}
+  Notification.requestPermission().then(function(perm){
+    if(perm!=="granted"){alert("Notifications are blocked for this site. Enable them in your browser settings, then try again.");return;}
+    navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(VAPID_PUBLIC)});})
+      .then(function(sub){return fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),favorites:getFavs()})});})
+      .then(function(){localStorage.setItem("snoking_push","1");updateBell();alert("You're set — I'll notify you when a saved restaurant gets a new rating.");})
+      .catch(function(e){alert("Couldn't enable alerts: "+((e&&e.message)||e));});
+  });
+}
+function disablePush(){getSub().then(function(sub){if(sub){fetch("/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(function(){});sub.unsubscribe();}localStorage.removeItem("snoking_push");updateBell();});}
+function applyUrlIntent(){
+  var qp=new URLSearchParams(location.search);
+  if(qp.get("changed")){var s=document.getElementById("colorby");if(s){s.value="changed";colorMode="changed";applyMetric("changed");updateSortLabel();recolor();}}
+  var fid=qp.get("focus");
+  if(fid){for(var i=0;i<ALL.length;i++){if(ALL[i].id===fid){map.setView([ALL[i].la,ALL[i].lo],17);setTimeout(function(){focusId(fid);},350);break;}}}
+}
+document.getElementById("favtog").onclick=function(e){e.stopPropagation();favOnly=!favOnly;updateFavTog();render();};
+document.getElementById("bell").onclick=function(e){e.stopPropagation();if(pushOn()){if(confirm("Turn off rating-change alerts?"))disablePush();}else enablePush();};
+updateFavTog();updateBell();
 // register the service worker so the app is installable / works offline (PWA)
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});
 </script><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;

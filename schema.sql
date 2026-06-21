@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS establishments (
   prev_rating  INTEGER,            -- the rating before the most recent change (NULL = first/new rating); set by the upsert
   rating_changed_at TEXT,          -- inspect_date when the current rating took effect (powers the "recently changed" view)
   change_svc   TEXT,               -- type of inspection that set the current rating: 'routine'|'reinspection'|'grade'|'other'
+  change_detected_at TEXT,         -- ingest timestamp when the rating change was first seen (drives push dispatch)
+  notified_at  TEXT,               -- last time push notifications were dispatched for this change
 
   updated_at   TEXT                -- ingest timestamp (ISO8601)
 );
@@ -46,6 +48,17 @@ CREATE TABLE IF NOT EXISTS bloopers (
   lat        REAL,
   lon        REAL
 );
+-- Anonymous Web Push subscriptions (no login): the subscription IS the identity. Each device that
+-- opts in stores its push endpoint + keys here and the establishment ids it favorited.
+CREATE TABLE IF NOT EXISTS push_subs (
+  id         TEXT PRIMARY KEY,     -- sha256(endpoint)
+  endpoint   TEXT NOT NULL,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TEXT, last_seen TEXT, fail_count INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS push_favorites (sub_id TEXT NOT NULL, est_id TEXT NOT NULL, PRIMARY KEY (sub_id, est_id));
+CREATE INDEX IF NOT EXISTS idx_pf_est ON push_favorites(est_id);   -- "who favorited establishment X" for dispatch
 CREATE INDEX IF NOT EXISTS idx_bloopers_date ON bloopers(date);
 CREATE INDEX IF NOT EXISTS idx_est_county  ON establishments(county);
 CREATE INDEX IF NOT EXISTS idx_est_rating  ON establishments(rating);
