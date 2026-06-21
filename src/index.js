@@ -898,17 +898,17 @@ function getSub(){return ("serviceWorker" in navigator)?navigator.serviceWorker.
 function syncPush(){if(!pushOn())return;getSub().then(function(sub){if(!sub)return;fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),favorites:getFavs()})}).catch(function(){});});}
 function iOS(){return /iP(hone|ad|od)/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);}
 function standalone(){return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;}
+// no pre-dialogs — tapping the bell goes straight to the OS/iOS permission prompt; the bell
+// lighting up is the confirmation. Denials/failures are silent (the bell just stays dim).
 function enablePush(){
-  if(!("serviceWorker" in navigator)||!("PushManager" in window)){alert("This browser doesn't support web notifications.");return;}
-  if(iOS()&&!standalone()){alert("On iPhone/iPad: tap Share → \"Add to Home Screen\", then open SnoKing from the new icon to turn on alerts.");return;}
-  if(!getFavs().length){alert("Tap a restaurant and ★ Save it first — then I will alert you when its rating changes.");return;}
+  if(!pushSupported())return;
   Notification.requestPermission().then(function(perm){
-    if(perm!=="granted"){alert("Notifications are blocked for this site. Enable them in your browser settings, then try again.");return;}
-    navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(VAPID_PUBLIC)});})
+    if(perm!=="granted")return;
+    return navigator.serviceWorker.ready
+      .then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(VAPID_PUBLIC)});})
       .then(function(sub){return fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),favorites:getFavs()})});})
-      .then(function(){localStorage.setItem("snoking_push","1");updateBell();alert("You're set — I'll notify you when a saved restaurant gets a new rating.");})
-      .catch(function(e){alert("Couldn't enable alerts: "+((e&&e.message)||e));});
-  });
+      .then(function(){localStorage.setItem("snoking_push","1");updateBell();});
+  }).catch(function(e){console.log("enable alerts failed",e);});
 }
 function disablePush(){getSub().then(function(sub){if(sub){fetch("/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(function(){});sub.unsubscribe();}localStorage.removeItem("snoking_push");updateBell();});}
 function applyUrlIntent(){
