@@ -421,7 +421,7 @@ const MAP_HTML = String.raw`<!doctype html>
   .item .mt{color:#6e7681;font-size:11px;margin-top:2px}
   .leaflet-popup-content{font:12.5px system-ui;margin:11px 13px;width:280px!important}
   .pp-name{font-weight:700;font-size:14px;margin-bottom:2px;color:#111}
-  .pp-badge{display:inline-block;color:#fff;font-weight:600;font-size:11px;padding:2px 8px;border-radius:999px;margin:3px 0}
+  .pp-badge{display:inline-block;color:#fff;font-weight:600;font-size:11px;padding:2px 8px;border-radius:999px;margin:3px 0;vertical-align:middle}
   .pp-addr{color:#555;font-size:12px}
   .pp-meta{color:#333;font-size:12px;margin-top:4px}
   .pp-meta b{color:#111}
@@ -749,7 +749,7 @@ function popupShell(d){
   var r=ratingOf(d),h='<img class="sv" src="/streetview?lat='+d.la+'&lon='+d.lo+'" onerror="this.style.display=\'none\'" data-lat="'+d.la+'" data-lon="'+d.lo+'" title="Click for 360° view">';
   h+='<div class="pp-name">'+esc(d.n)+'</div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
-  h+='<button class="favbtn" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="margin-left:7px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;border:0;background:'+(isFav(d.id)?"#caa200":"#f5b301")+';color:#1a1400;cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</button>';
+  h+='<span class="favbtn" role="button" tabindex="0" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="display:inline-block;margin:3px 0 3px 7px;font-size:11px;font-weight:600;padding:1px 9px;border-radius:999px;border:1px solid #f5b301;background:'+(isFav(d.id)?"#fbe7b3":"#fff")+';color:'+(isFav(d.id)?"#7a5c00":"#b8860b")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</span>';
   h+='<div class="pp-addr">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+(d.z?" "+esc(d.z):"")+'</div>';
   h+='<div class="pp-meta">'+COUNTY[d.co]+' · '+(CU_LABEL[d.cu]||"Other")+'</div>';
   if(d.co==="k"&&d.g!=null) h+='<div class="pp-meta">Grade <b>'+d.g+'</b> ('+LABEL[d.g]+')'+(d.rs?" · "+esc(d.rs):"")+'</div>';
@@ -787,7 +787,7 @@ function wirePopup(root,d){
   var sv=root.querySelector(".sv");
   if(sv)sv.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var f=document.createElement("iframe");f.src="/sv-embed?lat="+d.la+"&lon="+d.lo;f.style.cssText="width:100%;height:150px;border:0;border-radius:6px;display:block;margin-bottom:7px";sv.parentNode.replaceChild(f,sv);};
   var fb=root.querySelector(".favbtn");
-  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#caa200":"#f5b301";};
+  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#fbe7b3":"#fff";fb.style.color=on?"#7a5c00":"#b8860b";};
 }
 function bindPopupOpen(m,d){m.on("popupopen",function(e){wirePopup(e.popup.getElement(),d);});}
 // popup for a location: 1 establishment -> its detail; several -> a tappable list -> drill into detail
@@ -837,7 +837,7 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
     mk.on("click",function(){openLocPopup(loc);});return mk;});
   // cuisine dropdown (sorted by count)
   var sel=document.getElementById("cuisine");
-  var favOpt=document.createElement("option");favOpt.value="__fav";favOpt.textContent="★ Favorites";sel.appendChild(favOpt);   // top item, under "All cuisines"
+  var favOpt=document.createElement("option");favOpt.value="__fav";favOpt.textContent="★ Saved";sel.appendChild(favOpt);   // top item, under "All cuisines"
   Object.keys(cu).sort(function(a,b){return (CU_LABEL[a]||a).localeCompare(CU_LABEL[b]||b);}).forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=(CU_LABEL[k]||k)+" ("+cu[k]+")";sel.appendChild(o);});
   sel.onchange=function(){if(sel.value==="__fav"){favOnly=true;fCuisine="";}else{favOnly=false;fCuisine=sel.value;}render();};
   // range filter — follows the shade-by metric (rebuilt by applyMetric)
@@ -901,7 +901,7 @@ function standalone(){return window.matchMedia("(display-mode: standalone)").mat
 function enablePush(){
   if(!("serviceWorker" in navigator)||!("PushManager" in window)){alert("This browser doesn't support web notifications.");return;}
   if(iOS()&&!standalone()){alert("On iPhone/iPad: tap Share → \"Add to Home Screen\", then open SnoKing from the new icon to turn on alerts.");return;}
-  if(!getFavs().length){alert("Tap a restaurant and ★ Save it first — then I can alert you when its rating changes.");return;}
+  if(!getFavs().length){alert("Tap a restaurant and ★ Save it first — then I will alert you when its rating changes.");return;}
   Notification.requestPermission().then(function(perm){
     if(perm!=="granted"){alert("Notifications are blocked for this site. Enable them in your browser settings, then try again.");return;}
     navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(VAPID_PUBLIC)});})
