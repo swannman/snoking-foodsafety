@@ -920,7 +920,7 @@ function applyUrlIntent(){
 // hide the bell entirely on browsers without web-push support; otherwise wire enable/disable
 var bellEl=document.getElementById("bell");
 if(!pushSupported()){if(bellEl)bellEl.style.display="none";}
-else{bellEl.onclick=function(e){e.stopPropagation();if(pushOn()){if(confirm("Turn off rating-change alerts?"))disablePush();}else enablePush();};updateBell();}
+else{bellEl.onclick=function(e){e.stopPropagation();if(pushOn())disablePush();else enablePush();};updateBell();}
 // register the service worker so the app is installable / works offline (PWA)
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});
 </script><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
