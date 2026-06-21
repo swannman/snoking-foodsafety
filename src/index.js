@@ -451,7 +451,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="statslink" id="favtog" role="button" title="Show only my saved favorites" aria-label="Favorites" style="font-size:16px">☆</span> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <input id="q" placeholder="Search name or address…" autocomplete="off">
@@ -749,7 +749,7 @@ function popupShell(d){
   var r=ratingOf(d),h='<img class="sv" src="/streetview?lat='+d.la+'&lon='+d.lo+'" onerror="this.style.display=\'none\'" data-lat="'+d.la+'" data-lon="'+d.lo+'" title="Click for 360° view">';
   h+='<div class="pp-name">'+esc(d.n)+'</div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
-  h+='<button class="favbtn" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="margin-left:7px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:#0d1117;color:'+(isFav(d.id)?"#f5b301":"#8b949e")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</button>';
+  h+='<button class="favbtn" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="margin-left:7px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;border:0;background:'+(isFav(d.id)?"#caa200":"#f5b301")+';color:#1a1400;cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</button>';
   h+='<div class="pp-addr">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+(d.z?" "+esc(d.z):"")+'</div>';
   h+='<div class="pp-meta">'+COUNTY[d.co]+' · '+(CU_LABEL[d.cu]||"Other")+'</div>';
   if(d.co==="k"&&d.g!=null) h+='<div class="pp-meta">Grade <b>'+d.g+'</b> ('+LABEL[d.g]+')'+(d.rs?" · "+esc(d.rs):"")+'</div>';
@@ -787,7 +787,7 @@ function wirePopup(root,d){
   var sv=root.querySelector(".sv");
   if(sv)sv.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var f=document.createElement("iframe");f.src="/sv-embed?lat="+d.la+"&lon="+d.lo;f.style.cssText="width:100%;height:150px;border:0;border-radius:6px;display:block;margin-bottom:7px";sv.parentNode.replaceChild(f,sv);};
   var fb=root.querySelector(".favbtn");
-  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.color=on?"#f5b301":"#8b949e";};
+  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#caa200":"#f5b301";};
 }
 function bindPopupOpen(m,d){m.on("popupopen",function(e){wirePopup(e.popup.getElement(),d);});}
 // popup for a location: 1 establishment -> its detail; several -> a tappable list -> drill into detail
@@ -837,8 +837,9 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
     mk.on("click",function(){openLocPopup(loc);});return mk;});
   // cuisine dropdown (sorted by count)
   var sel=document.getElementById("cuisine");
+  var favOpt=document.createElement("option");favOpt.value="__fav";favOpt.textContent="★ Favorites";sel.appendChild(favOpt);   // top item, under "All cuisines"
   Object.keys(cu).sort(function(a,b){return (CU_LABEL[a]||a).localeCompare(CU_LABEL[b]||b);}).forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=(CU_LABEL[k]||k)+" ("+cu[k]+")";sel.appendChild(o);});
-  sel.onchange=function(){fCuisine=sel.value;render();};
+  sel.onchange=function(){if(sel.value==="__fav"){favOnly=true;fCuisine="";}else{favOnly=false;fCuisine=sel.value;}render();};
   // range filter — follows the shade-by metric (rebuilt by applyMetric)
   applyMetric(colorMode);
   // shade-by dropdown: re-point the range filter at the new metric, then recolor
@@ -889,7 +890,7 @@ var FAVKEY="snoking_favs", favOnly=false, VAPID_PUBLIC="BLUPpCG20smyXKX1k3fCvNd-
 function getFavs(){try{return JSON.parse(localStorage.getItem(FAVKEY)||"[]");}catch(e){return [];}}
 function isFav(id){return getFavs().indexOf(id)>=0;}
 function toggleFav(id){var f=getFavs(),i=f.indexOf(id);if(i>=0)f.splice(i,1);else f.push(id);localStorage.setItem(FAVKEY,JSON.stringify(f));syncPush();if(favOnly)render();return i<0;}
-function updateFavTog(){var el=document.getElementById("favtog");if(el){el.textContent=favOnly?"★":"☆";el.style.color=favOnly?"#f5b301":"";}}
+function pushSupported(){return ("serviceWorker" in navigator)&&("PushManager" in window)&&("Notification" in window);}
 function urlB64ToU8(s){var pad="=".repeat((4-s.length%4)%4),b=atob((s+pad).replace(/-/g,"+").replace(/_/g,"/")),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
 function pushOn(){return localStorage.getItem("snoking_push")==="1";}
 function updateBell(){var el=document.getElementById("bell");if(el)el.style.opacity=pushOn()?"1":".4";}
@@ -916,9 +917,10 @@ function applyUrlIntent(){
   var fid=qp.get("focus");
   if(fid){for(var i=0;i<ALL.length;i++){if(ALL[i].id===fid){map.setView([ALL[i].la,ALL[i].lo],17);setTimeout(function(){focusId(fid);},350);break;}}}
 }
-document.getElementById("favtog").onclick=function(e){e.stopPropagation();favOnly=!favOnly;updateFavTog();render();};
-document.getElementById("bell").onclick=function(e){e.stopPropagation();if(pushOn()){if(confirm("Turn off rating-change alerts?"))disablePush();}else enablePush();};
-updateFavTog();updateBell();
+// hide the bell entirely on browsers without web-push support; otherwise wire enable/disable
+var bellEl=document.getElementById("bell");
+if(!pushSupported()){if(bellEl)bellEl.style.display="none";}
+else{bellEl.onclick=function(e){e.stopPropagation();if(pushOn()){if(confirm("Turn off rating-change alerts?"))disablePush();}else enablePush();};updateBell();}
 // register the service worker so the app is installable / works offline (PWA)
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});
 </script><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
