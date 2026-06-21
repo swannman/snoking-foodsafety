@@ -911,12 +911,18 @@ function enablePush(){
   }).catch(function(e){console.log("enable alerts failed",e);});
 }
 function disablePush(){getSub().then(function(sub){if(sub){fetch("/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(function(){});sub.unsubscribe();}localStorage.removeItem("snoking_push");updateBell();});}
-function applyUrlIntent(){
-  var qp=new URLSearchParams(location.search);
+function applyUrlIntent(search){
+  var qp=new URLSearchParams(search!=null?search:location.search);
   if(qp.get("changed")){var s=document.getElementById("colorby");if(s){s.value="changed";colorMode="changed";applyMetric("changed");updateSortLabel();recolor();}}
   var fid=qp.get("focus");
   if(fid){for(var i=0;i<ALL.length;i++){if(ALL[i].id===fid){map.setView([ALL[i].la,ALL[i].lo],17);setTimeout(function(){focusId(fid);},350);break;}}}
 }
+// tapping a notification while the app is already open: open that restaurant's card without reloading
+if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",function(e){
+  if(e.data&&e.data.type==="notif-open"&&e.data.url){var u=new URL(e.data.url,location.origin);
+    try{history.replaceState(null,"",u.pathname+u.search);}catch(x){}
+    applyUrlIntent(u.search);}
+});
 // hide the bell entirely on browsers without web-push support; otherwise wire enable/disable
 var bellEl=document.getElementById("bell");
 if(!pushSupported()){if(bellEl)bellEl.style.display="none";}

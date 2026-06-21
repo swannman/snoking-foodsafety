@@ -29,7 +29,13 @@ self.addEventListener("notificationclick", function (e) {
   e.notification.close();
   var url = (e.notification.data && e.notification.data.url) || "/";
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (cs) {
-    for (var i = 0; i < cs.length; i++) { if (cs[i].url.indexOf(location.origin) === 0 && "focus" in cs[i]) { cs[i].navigate(url); return cs[i].focus(); } }
-    return self.clients.openWindow(url);
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i];
+      if (c.url.indexOf(location.origin) === 0 && "focus" in c) {
+        c.postMessage({ type: "notif-open", url: url });   // already-open app: open the card without a reload
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(url);   // no open window -> fresh load reads ?focus= and opens the card
   }));
 });
