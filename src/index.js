@@ -44,6 +44,7 @@ async function dispatchPush(env) {
     `SELECT e.id, e.name, e.prev_rating AS pr, e.rating AS r, e.change_svc AS cs
      FROM establishments e
      WHERE e.change_detected_at IS NOT NULL AND (e.notified_at IS NULL OR e.notified_at < e.change_detected_at)
+       AND e.rating IS NOT e.prev_rating   -- never notify when the new rating equals the old one (keeps first-rating "new", where prev is null)
        AND EXISTS (SELECT 1 FROM push_favorites f WHERE f.est_id = e.id)`
   ).all();
   if (!changes || !changes.length) return { changes: 0, subscribers: 0, sent: 0, dead: 0 };
