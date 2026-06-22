@@ -136,8 +136,14 @@ async function harvestKing() {
 async function king() {
   const { exact, byNum } = await harvestKing();
   console.log(`  king: harvested ${exact.size} prior cuisine/age records from live API`);
-  const biz = await arcAll(0, "Business_Record_ID,Business_Name,Business_Address,Business_City,Business_Location_Zip,Business_Grade,Business_Establishment_Descr", "Business_Status='Active'", "businesses", true);
-  console.log(`\n  king: ${biz.length} active businesses`);
+  // Permit status is administratively noisy — an open restaurant can read "Expired" while its
+  // renewal lags (e.g. Modoo Hansang, graded Excellent, inspected recently). So fetch Active plus
+  // the lapsed-but-maybe-open statuses, then below keep the non-Active ones ONLY if inspected
+  // recently (a current grade is the real "still operating" signal). Excludes Suspended / pending
+  // application states.
+  const biz = await arcAll(0, "Business_Record_ID,Business_Name,Business_Address,Business_City,Business_Location_Zip,Business_Grade,Business_Establishment_Descr,Business_Status", "Business_Status IN ('Active','Expired','Off Season','Fees Due','Change of Permit in Progr')", "businesses", true);
+  console.log(`\n  king: ${biz.length} businesses (active + lapsed-permit candidates)`);
+  const RECENT_CUT = new Date(Date.now() - 548 * 86400000).toISOString().slice(0, 10);   // ~18 months ago
   const insps = await arcAll(1, "Inspection_Serial_Num,Business_Record_ID,Inspection_Type,Inspection_Date,Inspection_Score,Inspection_Result", "1=1", "inspections");
   console.log(`\n  king: ${insps.length} inspections`);
   const viols = await arcAll(2, "Inspection_Serial_Num,Violation_Type,Violation_Descr,Violation_Points", "1=1", "violations");
@@ -157,6 +163,11 @@ async function king() {
       date: dstr(x.Inspection_Date), score: x.Inspection_Score != null ? +x.Inspection_Score : null,
       label: x.Inspection_Result || null, svc: x.Inspection_Type || null }));
     const latest = ins.length ? ins[ins.length - 1] : null;
+    // non-Active permit: only keep if inspected within ~18 months (clearly still operating)
+    if ((b.Business_Status || "").trim() !== "Active") {
+      const ld = latest ? dstr(latest.Inspection_Date) : null;
+      if (!ld || ld < RECENT_CUT) continue;
+    }
     const latestScore = latest && latest.Inspection_Score != null ? +latest.Inspection_Score : null;
     // King grades only restaurant-type establishments; schools/institutions are ungraded ->
     // derive a rating from points (like Snohomish) so nothing shows "Unrated".
