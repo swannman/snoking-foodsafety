@@ -307,6 +307,12 @@ export default {
       return Response.json({ id: row.id, name: row.name, report_url: row.report_url, ...detail });
     }
 
+    if (url.pathname === "/api/version") {
+      // tiny freshness probe (1-row index read) so the client can auto-refresh data when it changes
+      const v = (await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first())?.u || "0";
+      return Response.json({ v }, { headers: { "Cache-Control": "no-cache" } });
+    }
+
     if (url.pathname === "/api/stats") {
       const { results } = await env.DB.prepare(
         "SELECT county, rating, COUNT(*) AS n FROM establishments GROUP BY county, rating"
@@ -923,6 +929,30 @@ if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("messag
     try{history.replaceState(null,"",u.pathname+u.search);}catch(x){}
     applyUrlIntent(u.search);}
 });
+// auto-refresh the map data when it changes (the daily ingest) and the app returns to the foreground,
+// so no force-quit is needed. Re-fetch happens IN PLACE — current map position, zoom, and filters are
+// preserved. Cheap: a tiny /api/version probe, full re-fetch only when the version actually moved.
+function refreshData(newVer){
+  fetch("/api/establishments?v="+newVer).then(function(r){return r.json();}).then(function(j){
+    DATA_VERSION=newVer; ALL=j.items||[];
+    var csum={},cn={};
+    ALL.forEach(function(d){var base=d.ra!=null?d.ra:(d.r==null?null:d.r);if(base!=null){csum[d.cu]=(csum[d.cu]||0)+base;cn[d.cu]=(cn[d.cu]||0)+1;}});
+    CUMEAN={};for(var ck in csum)if(cn[ck]>=8)CUMEAN[ck]=csum[ck]/cn[ck];
+    LOC=clusterLocations(ALL,12);
+    MARK=LOC.map(function(loc){var mk=L.circleMarker([loc.la,loc.lo],{renderer:canvas,radius:7,weight:1,color:"#0b0b0b",fillColor:"#888",fillOpacity:.9});mk.on("click",function(){openLocPopup(loc);});return mk;});
+    render();renderLegend();
+    if(j.updated){var u=new Date(j.updated);document.getElementById("upd").textContent="Updated "+(isNaN(u)?j.updated:u.toLocaleDateString());}
+  }).catch(function(){});
+}
+var lastVerCheck=0;
+function checkForUpdate(){
+  if(document.visibilityState!=="visible")return;
+  var now=Date.now();if(now-lastVerCheck<30000)return;lastVerCheck=now;   // throttle repeated foregrounds
+  fetch("/api/version").then(function(r){return r.json();}).then(function(j){
+    if(j&&j.v&&encodeURIComponent(j.v)!==DATA_VERSION)refreshData(encodeURIComponent(j.v));
+  }).catch(function(){});
+}
+document.addEventListener("visibilitychange",checkForUpdate);
 // hide the bell entirely on browsers without web-push support; otherwise wire enable/disable
 var bellEl=document.getElementById("bell");
 if(!pushSupported()){if(bellEl)bellEl.style.display="none";}
