@@ -748,8 +748,16 @@ function renderList(){
   var L2=document.getElementById("list");L2.innerHTML=h;
   L2.querySelectorAll(".item[data-id]").forEach(function(el){el.onclick=function(){focusId(el.getAttribute("data-id"));};});
 }
-function focusId(id){for(var i=0;i<ALL.length;i++){if(ALL[i].id===id){var d=ALL[i],loc=d._loc;
-  if(loc)openLocPopup(loc,d,true);return;}}}   // true = leave the map where it is (the list is already viewport-scoped)
+function focusId(id){for(var i=0;i<ALL.length;i++){if(ALL[i].id===id){var d=ALL[i],loc=d._loc;if(!loc)return;
+  // on mobile, collapse the filter overlay so the map shows, then center the card (not the dot) on screen
+  var feed=document.getElementById("feed");
+  if(window.matchMedia("(max-width:720px)").matches&&feed&&!feed.classList.contains("collapsed"))feed.classList.add("collapsed");
+  openLocPopup(loc,d,"center");return;}}}
+// pan so the popup CARD is centered in the map viewport (the marker ends up below center)
+function centerPopup(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)return;
+  var card=el.querySelector(".leaflet-popup-content-wrapper")||el,mr=map.getContainer().getBoundingClientRect(),cr=card.getBoundingClientRect();
+  var dx=(cr.left+cr.width/2)-(mr.left+mr.width/2),dy=(cr.top+cr.height/2)-(mr.top+mr.height/2);
+  if(Math.abs(dx)>2||Math.abs(dy)>2)map.panBy([dx,dy],{animate:true});}
 
 // ── popups (lazy detail) ──────────────────────────────────────────────────────
 function popupShell(d){
@@ -786,11 +794,12 @@ function detailHtml(j){
   if(j.report_url){var kcSearch=/kingcounty\.gov/.test(j.report_url);h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">'+(kcSearch?'Search King County ratings →':'Official report →')+'</a>';}
   return h;
 }
-function wirePopup(root,d){
+function wirePopup(root,d,onLoaded){
   if(!root)return;
   var box=root.querySelector(".pp-detail");
   if(box&&!box.dataset.loaded){box.dataset.loaded="1";
-    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);}).catch(function(){box.innerHTML="";});}
+    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
+  else if(onLoaded)onLoaded();
   var sv=root.querySelector(".sv");
   if(sv)sv.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var f=document.createElement("iframe");f.src="/sv-embed?lat="+d.la+"&lon="+d.lo;f.style.cssText="width:100%;height:150px;border:0;border-radius:6px;display:block;margin-bottom:7px";sv.parentNode.replaceChild(f,sv);};
   var fb=root.querySelector(".favbtn");
@@ -813,14 +822,16 @@ function locListHtml(vm){
       +'<span style="color:#bbb;font-size:16px">›</span></div>';});
   return h+'</div>';
 }
-function openLocPopup(loc,focusD,noPan){
+function openLocPopup(loc,focusD,mode){
+  // mode: "center" -> we manually center the card; legacy truthy -> no autopan; falsy -> Leaflet autopan
+  var ctr=mode==="center";
   var vm=loc.m.filter(passes);if(!vm.length)return;
   vm.sort(function(a,b){return reprWorseness(b)-reprWorseness(a)||a.n.localeCompare(b.n);});   // worst-on-active-metric first (matches the cluster's representative color)
-  var pop=L.popup({maxWidth:300,minWidth:280,autoPan:!noPan}).setLatLng([loc.la,loc.lo]).openOn(map);
+  var pop=L.popup({maxWidth:300,minWidth:280,autoPan:!mode}).setLatLng([loc.la,loc.lo]).openOn(map);
   function showList(){pop.setContent(locListHtml(vm));setTimeout(function(){var root=pop.getElement();if(!root)return;
-    root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});},0);}
+    root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});if(ctr)centerPopup(pop);},0);}
   function showDetail(d){pop.setContent((vm.length>1?'<div class="loc-back" style="margin-bottom:6px;font-size:11.5px;color:#0969da;cursor:pointer">&larr; '+vm.length+' at this address</div>':'')+popupShell(d));
-    setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d);var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};},0);}
+    setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d,ctr?function(){centerPopup(pop);}:null);var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};if(ctr)centerPopup(pop);},0);}
   if(vm.length===1)showDetail(vm[0]);
   else if(focusD&&vm.indexOf(focusD)>=0)showDetail(focusD);
   else showList();
