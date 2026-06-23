@@ -22,6 +22,10 @@ directory = "./public"
 [observability]
 enabled = true
 
+# per-deploy version id, so the client can detect a new build and auto-reload (no force-quit needed)
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
 # Web Push: public VAPID key (safe to commit) + contact subject. Private key is the
 # VAPID_PRIVATE_JWK secret (wrangler secret put). The same public key is embedded client-side.
 [vars]

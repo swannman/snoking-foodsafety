@@ -309,9 +309,10 @@ export default {
     }
 
     if (url.pathname === "/api/version") {
-      // tiny freshness probe (1-row index read) so the client can auto-refresh data when it changes
+      // v = data freshness (1-row index read); b = deployed build id (so the client can auto-reload on a new release)
       const v = (await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first())?.u || "0";
-      return Response.json({ v }, { headers: { "Cache-Control": "no-cache" } });
+      const b = (env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id) || "0";
+      return Response.json({ v, b }, { headers: { "Cache-Control": "no-cache" } });
     }
 
     if (url.pathname === "/api/stats") {
@@ -346,7 +347,8 @@ export default {
       // inject the data version so the client's establishments fetch is cache-busted on every
       // re-ingest (the API response itself can then be cached hard, keyed by ?v=<updated_at>)
       const v = (await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first())?.u || "0";
-      const html = MAP_HTML.replace("__DATA_VERSION__", encodeURIComponent(v));
+      const b = (env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id) || "0";
+      const html = MAP_HTML.replace("__DATA_VERSION__", encodeURIComponent(v)).replace("__BUILD__", encodeURIComponent(b));
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
     }
     return new Response("not found", { status: 404 });
@@ -492,7 +494,7 @@ const MAP_HTML = String.raw`<!doctype html>
   <div id="legend"></div>
 </div>
 <script>
-var DATA_VERSION="__DATA_VERSION__";
+var DATA_VERSION="__DATA_VERSION__", BUILD_VERSION="__BUILD__";
 var COLOR={1:"#2ecc71",2:"#a8c800",3:"#f0a020",4:"#e5484d",0:"#7d8590"};
 var LABEL={1:"Excellent",2:"Good",3:"Okay",4:"Needs to Improve",0:"Unrated"};
 var RLABELS=["","Excellent","Good","Okay","Needs Improve"];
@@ -864,8 +866,11 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   document.getElementById("colorby").onchange=function(){colorMode=this.value;applyMetric(colorMode);updateSortLabel();recolor();};
   if(j.updated){var u=new Date(j.updated);document.getElementById("upd").textContent="Updated "+(isNaN(u)?j.updated:u.toLocaleDateString());}
   render();renderLegend();
-  var la=ALL.map(function(d){return d.la;}),lo=ALL.map(function(d){return d.lo;});
-  if(ALL.length)map.fitBounds([[Math.min.apply(0,la),Math.min.apply(0,lo)],[Math.max.apply(0,la),Math.max.apply(0,lo)]],{padding:[20,20]});
+  // restore the map position after an auto-reload (build update); otherwise fit the whole region
+  var rv=null;try{rv=JSON.parse(sessionStorage.getItem("snoking_view")||"null");sessionStorage.removeItem("snoking_view");}catch(e){}
+  if(rv&&Date.now()-rv.t<60000){map.setView([rv.la,rv.lo],rv.z);}
+  else{var la=ALL.map(function(d){return d.la;}),lo=ALL.map(function(d){return d.lo;});
+    if(ALL.length)map.fitBounds([[Math.min.apply(0,la),Math.min.apply(0,lo)],[Math.max.apply(0,la),Math.max.apply(0,lo)]],{padding:[20,20]});}
   applyUrlIntent();
 });
 var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();},180);};
@@ -961,7 +966,12 @@ function checkForUpdate(){
   if(document.visibilityState!=="visible")return;
   var now=Date.now();if(now-lastVerCheck<30000)return;lastVerCheck=now;   // throttle repeated foregrounds
   fetch("/api/version").then(function(r){return r.json();}).then(function(j){
-    if(j&&j.v&&encodeURIComponent(j.v)!==DATA_VERSION)refreshData(encodeURIComponent(j.v));
+    if(!j)return;
+    if(j.b&&encodeURIComponent(j.b)!==BUILD_VERSION){   // a new build is deployed -> reload to pick up new code (no force-quit)
+      try{sessionStorage.setItem("snoking_view",JSON.stringify({la:map.getCenter().lat,lo:map.getCenter().lng,z:map.getZoom(),t:Date.now()}));}catch(e){}
+      location.reload();return;
+    }
+    if(j.v&&encodeURIComponent(j.v)!==DATA_VERSION)refreshData(encodeURIComponent(j.v));
   }).catch(function(){});
 }
 document.addEventListener("visibilitychange",checkForUpdate);
