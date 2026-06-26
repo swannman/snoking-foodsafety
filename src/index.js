@@ -446,8 +446,8 @@ const MAP_HTML = String.raw`<!doctype html>
   .histd{font-size:11px}
   .histd>summary{list-style:none;cursor:pointer;color:#444;display:flex;justify-content:space-between;align-items:center;border-top:1px dotted #ddd;padding:3px 0}
   .histd>summary::-webkit-details-marker{display:none}
-  .histd>summary .hd::before{content:"▸";color:#aaa;font-size:9px;margin-right:5px}
-  .histd[open]>summary .hd::before{content:"▾"}
+  .histd>summary .hr::after{content:"▸";color:#aaa;font-size:9px;margin-left:6px}
+  .histd[open]>summary .hr::after{content:"▾"}
   .histd[open]>summary{font-weight:600;color:#111}
   .histv{padding:3px 0 6px 14px}
   .pp-link{display:inline-block;margin-top:7px;font-size:11.5px;color:#0969da;text-decoration:none;font-weight:600}
@@ -797,7 +797,7 @@ function detailHtml(j){
   if(hist.length>1){h+='<div class="pp-sec"><h4>Inspection history <span class="hsub">tap a date for details</span></h4>';
     hist.slice(0,16).forEach(function(x){
       var left=fmtDate(x.date)+(x.label?' · '+esc(x.label):""),right=(x.score!=null?x.score+" pts":""),vs=x.v||[];
-      if(vs.length)h+='<details class="histd"><summary><span class="hd">'+left+'</span><span>'+right+'</span></summary><div class="histv">'+violHtml(vs)+'</div></details>';
+      if(vs.length)h+='<details class="histd"><summary><span class="hd">'+left+'</span><span class="hr">'+right+'</span></summary><div class="histv">'+violHtml(vs)+'</div></details>';
       else h+='<div class="hist"><span>'+left+'</span><span>'+right+'</span></div>';
     });
     h+='</div>';}
