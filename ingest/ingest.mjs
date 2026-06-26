@@ -144,6 +144,7 @@ async function king() {
   const biz = await arcAll(0, "Business_Record_ID,Business_Name,Business_Address,Business_City,Business_Location_Zip,Business_Grade,Business_Establishment_Descr,Business_Status", "Business_Status IN ('Active','Expired','Off Season','Fees Due','Change of Permit in Progr')", "businesses", true);
   console.log(`\n  king: ${biz.length} businesses (active + lapsed-permit candidates)`);
   const RECENT_CUT = new Date(Date.now() - 548 * 86400000).toISOString().slice(0, 10);   // ~18 months ago
+  const HIST_CUT = new Date(Date.now() - 1096 * 86400000).toISOString().slice(0, 10);    // ~3 years ago (history-with-violations window)
   const insps = await arcAll(1, "Inspection_Serial_Num,Business_Record_ID,Inspection_Type,Inspection_Date,Inspection_Score,Inspection_Result", "1=1", "inspections");
   console.log(`\n  king: ${insps.length} inspections`);
   const viols = await arcAll(2, "Inspection_Serial_Num,Violation_Type,Violation_Descr,Violation_Points", "1=1", "violations");
@@ -159,9 +160,14 @@ async function king() {
     if (!isFinite(lat) || !isFinite(lon)) continue;
     const recId = b.Business_Record_ID;
     const ins = (inspBy.get(recId) || []).slice().sort((x, y) => String(x.Inspection_Date || "").localeCompare(String(y.Inspection_Date || "")));   // ascending
-    const history = ins.slice(-8).reverse().map((x) => ({
+    const mh = ins.slice(-8).reverse().map((x) => ({
       date: dstr(x.Inspection_Date), score: x.Inspection_Score != null ? +x.Inspection_Score : null,
-      label: x.Inspection_Result || null, svc: x.Inspection_Type || null }));
+      label: x.Inspection_Result || null, svc: x.Inspection_Type || null }));   // last 8 — drives the rating metrics (unchanged)
+    const kviol = (serial) => (violBy.get(serial) || []).map((v) => ({ label: v.Violation_Descr, points: v.Violation_Points != null ? +v.Violation_Points : null, type: v.Violation_Type || null }));
+    // display history: every inspection in the last 3 years (newest first) WITH its violations — the "reasons" for each score
+    const history = ins.filter((x) => { const d = dstr(x.Inspection_Date); return d && d >= HIST_CUT; }).reverse().slice(0, 24).map((x) => ({
+      date: dstr(x.Inspection_Date), score: x.Inspection_Score != null ? +x.Inspection_Score : null,
+      label: x.Inspection_Result || null, svc: x.Inspection_Type || null, v: kviol(x.Inspection_Serial_Num) }));
     const latest = ins.length ? ins[ins.length - 1] : null;
     // non-Active permit: only keep if inspected within ~18 months (clearly still operating)
     if ((b.Business_Status || "").trim() !== "Active") {
@@ -172,11 +178,10 @@ async function king() {
     // King grades only restaurant-type establishments; schools/institutions are ungraded ->
     // derive a rating from points (like Snohomish) so nothing shows "Unrated".
     const grade = KC_GRADE[String(b.Business_Grade || "").trim()] || null;
-    const ravg = avgRating(history);
+    const ravg = avgRating(mh);
     const rating = grade != null ? grade : (pointRating(latestScore) ?? (ravg != null ? Math.round(ravg) : null));
     if (rating == null) continue;   // registered but never inspected & ungraded — no rating data, skip (old feed never listed these)
-    const latestViol = latest ? (violBy.get(latest.Inspection_Serial_Num) || []).map((v) => ({
-      label: v.Violation_Descr, points: v.Violation_Points != null ? +v.Violation_Points : null, type: v.Violation_Type || null })) : [];
+    const latestViol = latest ? kviol(latest.Inspection_Serial_Num) : [];
     // preserve prior cuisine + deeper age: match harvested live data by name+address, else street number
     const h = exact.get(knorm(b.Business_Name) + "|" + knorm(b.Business_Address)) ||
               byNum.get(knorm(b.Business_Name) + "#" + kHouseNo(b.Business_Address));
@@ -194,8 +199,8 @@ async function king() {
       rating_svc: grade != null ? "grade" : classifySvc(latest ? latest.Inspection_Type : null),
       inspect_date: latest ? dstr(latest.Inspection_Date) : null, first_date,
       report_url: "https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings",
-      rating_avg: ravg, rating_avg_all: avgRating(history, 99),
-      rating_routine: ratingRoutine(history) ?? rating, rating_worst: ratingWorst(history) ?? rating, poor_frac: poorFrac(history), worst_points: worstPoints(history),
+      rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
+      rating_routine: ratingRoutine(mh) ?? rating, rating_worst: ratingWorst(mh) ?? rating, poor_frac: poorFrac(mh), worst_points: worstPoints(mh),
       tract_id: tagTract(lon, lat),
       detail: { violations: latestViol, history },
     });
@@ -320,10 +325,15 @@ async function snohomish() {
   if (LIMIT) list = list.slice(0, LIMIT);
   const progCache = existsSync(PROG_PATH) ? JSON.parse(readFileSync(PROG_PATH, "utf8")) : {};
   const recs = [], bloopers = [];
+  const HIST_CUT = new Date(Date.now() - 1096 * 86400000).toISOString().slice(0, 10);   // ~3 years ago
+  const svViol = (ins) => ((ins && ins.violations) || []).map((v) => ({
+    label: v.violation_description || v.violation_text || ("Violation " + (v.violation_code || "")),
+    points: null, type: null,
+    note: (v.v_memo || "").replace(/\r\n?/g, "\n").trim().slice(0, 700) || null }));
   let done = 0, fails = 0;
   for (const f of list) {
     const { city, zip } = parseCityStateZip(f.CityStateZip);
-    let firstDate = null, latest = null, history = [], category = null, score = f.LastScore != null ? +f.LastScore : null;
+    let firstDate = null, latest = null, history = [], mh = [], category = null, score = f.LastScore != null ? +f.LastScore : null;
     try {
       const prog = await snoProgram(f.FacilityId, progCache); await sleep(55);
       if (prog) {
@@ -333,7 +343,9 @@ async function snohomish() {
         if (insp.length) firstDate = dstr(insp[insp.length - 1].activity_date);
         latest = insp.find((x) => /ROUTINE/i.test(x.service)) || insp[0];
         if (latest) score = latest.score != null ? +latest.score : score;
-        history = insp.slice(0, 8).map((x) => ({ date: dstr(x.activity_date), score: x.score != null ? +x.score : null, label: x.service || null, svc: x.service || null }));
+        mh = insp.slice(0, 8).map((x) => ({ date: dstr(x.activity_date), score: x.score != null ? +x.score : null, label: x.service || null, svc: x.service || null }));   // last 8 — drives the rating metrics (unchanged)
+        // display history: every inspection in the last 3 years (newest first) WITH its violations — the "reasons" for each score
+        history = insp.filter((x) => { const d = dstr(x.activity_date); return d && d >= HIST_CUT; }).slice(0, 24).map((x) => ({ date: dstr(x.activity_date), score: x.score != null ? +x.score : null, label: x.service || null, svc: x.service || null, v: svViol(x) }));
         // scan EVERY inspection's violation narratives for bloopers (the funny reel)
         const rurl = SNO_API.replace("/api/pressAgentClient", "") + "/#/pa1/detail/" + f.FacilityId + (prog.programId ? "/" + prog.programId : "");
         for (const ins of insp) for (const v of (ins.violations || [])) {
@@ -346,12 +358,8 @@ async function snohomish() {
       }
     } catch (e) { fails++; }
     if (++done % 50 === 0) process.stdout.write(`  sno crawl: ${done}/${list.length} (${fails} errors, ${bloopers.length} bloopers)\r`);
-    const violations = (latest?.violations || []).map((v) => ({
-      label: v.violation_description || v.violation_text || ("Violation " + (v.violation_code || "")),
-      points: null, type: null,
-      note: (v.v_memo || "").replace(/\r\n?/g, "\n").trim().slice(0, 700) || null,
-    }));
-    const ravg = avgRating(history);
+    const violations = svViol(latest);
+    const ravg = avgRating(mh);
     const rating = snoRating(score) ?? (ravg != null ? Math.round(ravg) : null);
     recs.push({
       id: "sno:" + f.FacilityId, county: "snohomish", name: (f.FacilityName || "").trim(),
@@ -362,8 +370,8 @@ async function snohomish() {
       result: null, inspect_date: latest ? dstr(latest.activity_date) : null, first_date: firstDate,
       report_url: SNO_API.replace("/api/pressAgentClient", "") + "/#/pa1/detail/" + f.FacilityId +
         (progCache[f.FacilityId]?.programId ? "/" + progCache[f.FacilityId].programId : ""),
-      rating_avg: ravg, rating_avg_all: avgRating(history, 99),
-      rating_routine: ratingRoutine(history) ?? rating, rating_worst: ratingWorst(history) ?? rating, poor_frac: poorFrac(history), worst_points: worstPoints(history),
+      rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
+      rating_routine: ratingRoutine(mh) ?? rating, rating_worst: ratingWorst(mh) ?? rating, poor_frac: poorFrac(mh), worst_points: worstPoints(mh),
       detail: { violations, history, category },
     });
   }

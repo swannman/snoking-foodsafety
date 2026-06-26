@@ -442,6 +442,14 @@ const MAP_HTML = String.raw`<!doctype html>
   .viol .vt{display:inline-block;font-size:9.5px;font-weight:700;color:#fff;padding:1px 5px;border-radius:4px;margin-right:5px;vertical-align:1px}
   .viol .note{color:#555;white-space:pre-wrap;font-size:11px;margin-top:1px;max-height:60px;overflow:auto}
   .hist{font-size:11px;color:#444;display:flex;justify-content:space-between;border-top:1px dotted #ddd;padding:2px 0}
+  .hsub{font-weight:400;color:#999;font-size:10px}
+  .histd{font-size:11px}
+  .histd>summary{list-style:none;cursor:pointer;color:#444;display:flex;justify-content:space-between;align-items:center;border-top:1px dotted #ddd;padding:3px 0}
+  .histd>summary::-webkit-details-marker{display:none}
+  .histd>summary .hd::before{content:"▸";color:#aaa;font-size:9px;margin-right:5px}
+  .histd[open]>summary .hd::before{content:"▾"}
+  .histd[open]>summary{font-weight:600;color:#111}
+  .histv{padding:3px 0 6px 14px}
   .pp-link{display:inline-block;margin-top:7px;font-size:11.5px;color:#0969da;text-decoration:none;font-weight:600}
   .loading{color:#999;font-size:11.5px}
   @media (max-width:720px){
@@ -778,20 +786,20 @@ function popupShell(d){
   h+='<div class="pp-detail"><div class="loading">Loading inspection detail…</div></div>';
   return h;
 }
+function violHtml(vs){var s="";(vs||[]).forEach(function(x){
+  var tag=x.type?'<span class="vt" style="background:'+(x.type==="RED"?"#e5484d":"#3b82f6")+'">'+esc(x.type)+(x.points!=null?" "+x.points:"")+'</span>':"";
+  s+='<div class="viol"><div class="vh">'+tag+esc(x.label||"")+'</div>'+(x.note?'<div class="note">'+esc(x.note)+'</div>':"")+'</div>';});return s;}
 function detailHtml(j){
-  var h="";
-  var v=j.violations||[];
-  if(v.length){h+='<div class="pp-sec"><h4>Most recent violations</h4>';
-    v.slice(0,8).forEach(function(x){
-      var tag=x.type?'<span class="vt" style="background:'+(x.type==="RED"?"#e5484d":"#3b82f6")+'">'+esc(x.type)+(x.points!=null?" "+x.points:"")+'</span>':"";
-      h+='<div class="viol"><div class="vh">'+tag+esc(x.label||"")+'</div>'+(x.note?'<div class="note">'+esc(x.note)+'</div>':"")+'</div>';
-    });
-    if(v.length>8)h+='<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>';
-    h+='</div>';
-  } else h+='<div class="pp-sec"><h4>Most recent violations</h4><div style="font-size:11.5px;color:#2a8a4a">No violations recorded ✓</div></div>';
+  var h="",v=j.violations||[];
+  if(v.length)h+='<div class="pp-sec"><h4>Most recent violations</h4>'+violHtml(v.slice(0,8))+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div>';
+  else h+='<div class="pp-sec"><h4>Most recent violations</h4><div style="font-size:11.5px;color:#2a8a4a">No violations recorded ✓</div></div>';
   var hist=j.history||[];
-  if(hist.length>1){h+='<div class="pp-sec"><h4>Inspection history</h4>';
-    hist.slice(0,6).forEach(function(x){h+='<div class="hist"><span>'+fmtDate(x.date)+(x.label?' · '+esc(x.label):"")+'</span><span>'+(x.score!=null?x.score+" pts":"")+'</span></div>';});
+  if(hist.length>1){h+='<div class="pp-sec"><h4>Inspection history <span class="hsub">tap a date for details</span></h4>';
+    hist.slice(0,16).forEach(function(x){
+      var left=fmtDate(x.date)+(x.label?' · '+esc(x.label):""),right=(x.score!=null?x.score+" pts":""),vs=x.v||[];
+      if(vs.length)h+='<details class="histd"><summary><span class="hd">'+left+'</span><span>'+right+'</span></summary><div class="histv">'+violHtml(vs)+'</div></details>';
+      else h+='<div class="hist"><span>'+left+'</span><span>'+right+'</span></div>';
+    });
     h+='</div>';}
   if(j.report_url){var kcSearch=/kingcounty\.gov/.test(j.report_url);h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">'+(kcSearch?'Search King County ratings →':'Official report →')+'</a>';}
   return h;
