@@ -396,6 +396,9 @@ const MAP_HTML = String.raw`<!doctype html>
   .sub{color:var(--muted);font-size:11.5px;margin:3px 0 0}
   #controls{padding:10px 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
   #q{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:#0d1117;color:var(--ink);font-size:13px}
+  .qwrap{position:relative}
+  #qclear{display:none;position:absolute;left:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:0;border-radius:50%;background:#30363d;color:#c9d1d9;font:14px/18px system-ui;text-align:center;cursor:pointer;padding:0}
+  #q.hasclear{padding-left:32px}
   #q::placeholder{color:#6e7681}
   .field{margin-top:11px}
   .field>label{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
@@ -471,7 +474,7 @@ const MAP_HTML = String.raw`<!doctype html>
       <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
-      <input id="q" placeholder="Search name or address…" autocomplete="off">
+      <div class="qwrap"><button type="button" id="qclear" aria-label="Clear search" title="Clear">×</button><input id="q" placeholder="Search name or address…" autocomplete="off"></div>
       <div class="field">
         <label>Cuisine</label>
         <select id="cuisine"><option value="">All cuisines</option></select>
@@ -882,6 +885,12 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   applyUrlIntent();
 });
 var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();},180);};
+// when focus leaves the search field and it has text, show an in-field clear button (left of the text);
+// clicking it clears the field, re-renders, and re-focuses the field
+(function(){var q=document.getElementById("q"),qc=document.getElementById("qclear");
+  q.addEventListener("blur",function(){if(q.value){qc.style.display="block";q.classList.add("hasclear");}});
+  q.addEventListener("focus",function(){qc.style.display="none";q.classList.remove("hasclear");});
+  qc.addEventListener("click",function(){clearTimeout(qt);q.value="";query="";render();q.focus();});})();
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
 // "recently changed" sorts by recency, so its label reads newest/oldest; every other metric reads worst/best
 function sortLabel(){return colorMode==="changed"?(sortDir>0?"newest first":"oldest first"):(sortDir>0?"worst first":"best first");}
