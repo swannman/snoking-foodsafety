@@ -399,6 +399,8 @@ const MAP_HTML = String.raw`<!doctype html>
   .qwrap{position:relative}
   #qclear{display:none;position:absolute;left:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:0;border-radius:50%;background:#30363d;color:#c9d1d9;font:14px/18px system-ui;text-align:center;cursor:pointer;padding:0}
   #q.hasclear{padding-left:32px}
+  /* iOS auto-zooms on focus when an input's font is <16px; bump it on touch devices to stop that */
+  @media (pointer:coarse){#q{font-size:16px}}
   #q::placeholder{color:#6e7681}
   .field{margin-top:11px}
   .field>label{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
