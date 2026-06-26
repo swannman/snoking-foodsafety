@@ -40,3 +40,8 @@ database_id = "5c5ffdec-a164-4c51-862e-86b61171a9a2"
 [[kv_namespaces]]
 binding = "REGIONS"
 id = "32eb27b3de934723a82c747e0b5d4dd7"
+
+# anonymous product-usage events (which views/filters/features people use) — no PII
+[[analytics_engine_datasets]]
+binding = "AE"
+dataset = "snoking_events"
