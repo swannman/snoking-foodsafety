@@ -1361,7 +1361,6 @@ const ABOUT_HTML = String.raw`<!doctype html>
   <h1>About this map</h1>
 
   <p>This is a map of restaurant and food-establishment inspection ratings for King and Snohomish counties. The inspection records are already public, but they're spread across two county systems and aren't easy to browse or compare. This puts both counties on one map, lets you filter and sort it, and makes it possible to see patterns that aren't obvious when you look up one place at a time.</p>
-  <p>It's free, has no ads, and doesn't require an account.</p>
 
   <h2>Where the data comes from</h2>
   <ul>
