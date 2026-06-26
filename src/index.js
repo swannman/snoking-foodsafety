@@ -1403,7 +1403,7 @@ const ABOUT_HTML = String.raw`<!doctype html>
   <p>Because of that, the map has a <strong>"vs cuisine norm"</strong> view. Instead of coloring each place by its absolute rating, it colors each place by how it compares to the average for its own cuisine. A chicken restaurant that does better than most chicken restaurants shows up as strong, even if its raw score is middling for the map as a whole. This is the most useful way to read the data if you want to know which restaurants stand out among their peers, rather than which cuisines are harder to inspect.</p>
 
   <h2>What the ratings don't tell you</h2>
-  <p>An inspection is a snapshot of one visit. The result depends on timing and on the inspector, and many violations are about record-keeping or temperatures rather than anything you'd notice as a customer. A single good score doesn't guarantee a good experience, and one bad inspection doesn't mean a place is unsafe. The history-based measures are steadier than any single rating, which is why they're included.</p>
+  <p>An inspection is a snapshot of one visit. The result depends on timing and on the inspector, and many violations are about record-keeping or signage rather than anything you'd notice as a customer. A single good score doesn't guarantee a good experience, and one bad inspection doesn't mean a place is unsafe. The history-based measures are steadier than any single rating, which is why they're included.</p>
   <p>Snohomish County's online records only go back a few years, so "years on record" and long-term history are shorter there than in King County.</p>
 
   <h2>Not an official source</h2>
