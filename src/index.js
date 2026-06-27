@@ -131,13 +131,24 @@ export default {
         openCuisine: `SELECT blob3 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob3!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 20`,
         openRest: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
         savedRest: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='fav' AND blob2='add' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
-        nav: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='nav' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         install: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='app' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         hourly: `SELECT toStartOfHour(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens FROM snoking_events WHERE timestamp > now() - INTERVAL '2' DAY GROUP BY k ORDER BY k`
       };
       const keys = Object.keys(Q), out = {};
       const rs = await Promise.all(keys.map((k) => aeQuery(env, Q[k])));
       keys.forEach((k, i) => { out[k] = rs[i]; });
+      // the analytics events only carry the restaurant NAME, so look up rating + city from D1
+      // (by name) for the most-checked / most-saved panels — lets us see if rating biases checks.
+      try {
+        const names = [...new Set([...(out.openRest || []), ...(out.savedRest || [])].map((r) => r.k).filter(Boolean))];
+        if (names.length) {
+          const ph = names.map(() => "?").join(",");
+          const { results } = await env.DB.prepare(`SELECT id, name, rating, city FROM establishments WHERE name IN (${ph})`).bind(...names).all();
+          const m = {}; for (const row of results || []) { if (m[row.name] == null) m[row.name] = { id: row.id, rating: row.rating, city: row.city }; }
+          const attach = (rows) => (rows || []).map((r) => ({ ...r, id: (m[r.k] || {}).id ?? null, rating: (m[r.k] || {}).rating ?? null, city: (m[r.k] || {}).city ?? null }));
+          out.openRest = attach(out.openRest); out.savedRest = attach(out.savedRest);
+        }
+      } catch {}
       return Response.json(out, { headers: { "Cache-Control": "no-store" } });
     }
 
@@ -1089,9 +1100,9 @@ document.getElementById("loc").onclick=function(e){e.stopPropagation();var btn=t
     map.setView([la,lo],16);
   },function(err){btn.classList.remove("locating");alert("Couldn't get your location: "+err.message);},
   {enableHighAccuracy:true,timeout:10000,maximumAge:60000});};
-// nav-link click tracking (sendBeacon fires before navigation): stats / bloopers / about pages
+// nav-link click tracking (sendBeacon fires before navigation): each page open is its own event type
 [["lnk-stats","stats"],["lnk-bloop","bloopers"],["about","about"]].forEach(function(p){
-  var el=document.getElementById(p[0]);if(el)el.addEventListener("click",function(){track("nav",p[1]);});});
+  var el=document.getElementById(p[0]);if(el)el.addEventListener("click",function(){track(p[1]);});});
 // in emoji mode, re-cull to the new viewport (and switch dots<->emoji across the zoom threshold).
 // DEBOUNCED: a tap on mobile jitters the map slightly -> moveend; without the delay the re-cull
 // would destroy the tapped marker before its click lands, so taps never register. The delay lets
@@ -1633,6 +1644,11 @@ const DASH_HTML = String.raw`<!doctype html>
   .row .bar{flex:1;height:15px;background:#0d1117;border-radius:4px;overflow:hidden}
   .row .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
   .row .val{width:54px;flex:none;text-align:right;color:#c9d2dc;font-variant-numeric:tabular-nums}
+  .row .rdot{width:9px;height:9px;border-radius:50%;flex:none;margin-right:7px}
+  .row .city{color:var(--muted);font-size:11px;margin-left:5px}
+  a.rowlink{text-decoration:none;color:inherit}
+  a.rowlink:hover .lbl{color:var(--accent)}
+  a.rowlink:hover{cursor:pointer}
   .spark{display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:4px}
   .spark .b{flex:1;min-width:2px;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
   .spark .b:hover{opacity:1}
@@ -1667,10 +1683,7 @@ const DASH_HTML = String.raw`<!doctype html>
     <section><h2>Opens by cuisine</h2><div id="openCuisine"></div></section>
     <section><h2>Opens by county</h2><div id="county"></div></section>
   </div>
-  <div class="cols">
-    <section><h2>Stats / Bloopers / About opens</h2><div id="nav"></div></section>
-    <section><h2>Event types</h2><div id="byType"></div></section>
-  </div>
+  <section><h2>Event types</h2><div id="byType"></div></section>
   <section><h2>Last 48h &mdash; sessions per hour (local)</h2><div id="hourly"></div></section>
   <p class="muted" id="foot"></p>
 </main>
@@ -1684,8 +1697,7 @@ const DASH_HTML = String.raw`<!doctype html>
   function fmt(x){return n(x).toLocaleString();}
   function clab(k){return k==="k"?"King":k==="s"?"Snohomish":(k||"(none)");}
   var SHADE_LABELS={rating:"Rating — latest inspection",routine:"Last routine rating (ignores reinspections)",avg:"Average of the last 5 inspections",worstpts:"Worst inspection on record (violation points)",poorfrac:"% of routines that came back Okay-or-worse (chronic)",resid:"vs cuisine norm — over/under-performers vs same cuisine",changed:"Recently changed — new + rating up/down",age:"Years in operation",cuisine:"Shaded by cuisine type"};
-  var EVENT_LABELS={open:"Opened a restaurant card",app:"App load (session start)",hist:"Expanded an inspection-history date",shade:"Changed the shade-by metric",search:"Used the name/address search",filter:"Changed the cuisine filter",ref:"Visit referrer (where it came from)",fav:"Saved/unsaved a favorite",alerts:"Enabled/disabled push alerts",about:"Opened the About page",nav:"Opened Stats / Bloopers / About",locate:"Tapped Zoom-to-my-location"};
-  var NAV_LABELS={stats:"Per-capita / stats map",bloopers:"Inspection bloopers reel",about:"About & methodology"};
+  var EVENT_LABELS={open:"Opened a restaurant card",app:"App load (session start)",hist:"Expanded an inspection-history date",shade:"Changed the shade-by metric",search:"Used the name/address search",filter:"Changed the cuisine filter",fav:"Saved/unsaved a favorite",alerts:"Enabled/disabled push alerts",about:"Opened the About page",stats:"Opened the per-capita / stats map",bloopers:"Opened the bloopers reel",locate:"Tapped Zoom-to-my-location"};
   function barList(elId,rows,labelFn,titleMap){
     var el=document.getElementById(elId);
     if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
@@ -1693,6 +1705,18 @@ const DASH_HTML = String.raw`<!doctype html>
     var h="";rows.forEach(function(r){var v=n(r.v),pct=Math.round(v/max*100),lab=labelFn?labelFn(r.k):(r.k||"(none)");
       var ttl=titleMap===true?lab:(titleMap?(titleMap[r.k]||""):"");
       h+='<div class="row"'+(ttl?' data-tip="'+esc(ttl)+'"':'')+'><span class="lbl">'+esc(lab)+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(v)+'</span></div>';});
+    el.innerHTML=h;
+  }
+  var RCOLOR={1:"#2ecc71",2:"#a8c800",3:"#f0a020",4:"#e5484d"},RLAB={1:"Excellent",2:"Good",3:"Okay",4:"Needs Improve"};
+  // restaurant list with a rating swatch + city, so you can see whether high- or low-rated places get checked
+  function ratedList(elId,rows){
+    var el=document.getElementById(elId);
+    if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
+    var max=0;rows.forEach(function(r){if(n(r.v)>max)max=n(r.v);});max=max||1;
+    var h="";rows.forEach(function(r){var v=n(r.v),pct=Math.round(v/max*100),rt=r.rating,city=r.city?r.city.replace(/\b\w/g,function(c){return c.toUpperCase();}):"";
+      var tip=(rt?RLAB[rt]:"Unrated")+(city?" · "+city:"")+" — "+r.k+(r.id?" (open on map)":"");
+      var tag=r.id?'a href="/?focus='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener" class="row rowlink"':'div class="row"';
+      h+='<'+tag+' data-tip="'+esc(tip)+'"><span class="rdot" style="background:'+(RCOLOR[rt]||"#7d8590")+'"></span><span class="lbl">'+esc(r.k)+(city?' <span class="city">'+esc(city)+'</span>':"")+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(v)+'</span></'+(r.id?"a":"div")+'>';});
     el.innerHTML=h;
   }
   function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
@@ -1735,8 +1759,7 @@ const DASH_HTML = String.raw`<!doctype html>
       tiles(d);renderDaily(d.daily);renderHourly(d.hourly);
       barList("referrers",d.referrers);barList("shade",d.shade,null,SHADE_LABELS);barList("cuisine",d.cuisine);
       barList("county",d.county,clab);barList("byType",d.byType,null,EVENT_LABELS);
-      barList("openRest",d.openRest,null,true);barList("savedRest",d.savedRest,null,true);barList("openCuisine",d.openCuisine);
-      barList("nav",d.nav,null,NAV_LABELS);
+      ratedList("openRest",d.openRest);ratedList("savedRest",d.savedRest);barList("openCuisine",d.openCuisine);
       document.getElementById("foot").textContent="Counts are sampling-estimated. Updated "+new Date().toLocaleString();
     }).catch(function(){});
   }
