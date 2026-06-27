@@ -507,7 +507,7 @@ const MAP_HTML = String.raw`<!doctype html>
         <div class="dual" id="rslider"></div>
       </div>
     </div>
-    <div id="listhead"><span id="count">…</span><span><span id="upd"></span> · in view · <span id="sortdir" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Click to flip sort order">worst first</span></span></div>
+    <div id="listhead"><span id="count">…</span><span><span id="upd"></span> · in view · <span id="sortdir" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Click to change sort">A–Z</span></span></div>
     <div id="list"></div>
   </div>
   <div id="map"></div>
@@ -550,7 +550,7 @@ var GROUP_ORDER=["grill","fastfood","mexican","sandwich","pizza","italian","medi
 // one emoji per category — drawn on a rating-colored disc so cuisine + rating read at once
 var CU_EMOJI={pizza:"🍕",mexican:"🌮",chinese:"🥡",japanese:"🍣",teriyaki:"🍱",thai:"🍜",vietnamese:"🍲",korean:"🥘",indian:"🍛",mediterranean:"🥙",italian:"🍝",bbq:"🍖",burgers:"🍔",chicken:"🍗",sandwich:"🥪",seafood:"🦐",coffee:"☕",bakery:"🧁",bar:"🍺",grocery:"🛒",fastfood:"🍟",cafe_diner:"🥞",school:"🏫",seniorcare:"🏥",hotel:"🏨",catering:"🍽️",foodtruck:"🚚",venue:"🏟️",workplace:"🏢",asian:"🥢",american:"🥩",african:"🫓",other:"🍴"};
 var AGE_PAL=["#cfe8f3","#92c5de","#4393c3","#2166ac","#0b3d73"], AGE_BK=[2,5,10,15], AGE_LBL=["≤2 yr","3–5 yr","6–10 yr","11–15 yr","16+ yr"];
-var colorMode="rating", sortDir=1;   // sortDir: 1 = worst first (desc), -1 = best first (asc)
+var colorMode="rating", sortMode="alpha";   // list sort cycles "alpha" (A–Z) -> "best" -> "worst" -> "alpha"
 function esc(s){return (s==null?"":String(s)).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
 function ratingOf(d){return d.r==null?0:d.r;}
 function ageOf(d){if(!d.fd)return null;var y=+String(d.fd).slice(0,4);return isFinite(y)?Math.max(0,NOW_Y-y):null;}
@@ -754,9 +754,11 @@ function emojiMarker(loc){var m=L.marker([loc.la,loc.lo],{icon:emojiIcon(loc),ke
 function updateEmojiHint(){var el=document.getElementById("emojihint");if(el)el.textContent=(emojiMode&&map.getZoom()<EMOJI_ZOOM)?"— zoom in for emoji ↗":"";}
 function renderList(){
   var b=map.getBounds(),vis=curVisEst.filter(function(d){return b.contains([d.la,d.lo]);});   // only what's in view
-  var flip=(METRIC&&METRIC.hiWorse===false)?-1:1;                                               // resid: higher = better, so flip
-  function sv(d){var v=METRIC?METRIC.val(d):ratingOf(d);return v==null?-Infinity:flip*v;}        // normalized so higher = worse
-  vis.sort(function(a,b){return sortDir*(sv(b)-sv(a))|| a.n.localeCompare(b.n);});
+  if(sortMode==="alpha"){vis.sort(function(a,b){return a.n.localeCompare(b.n);});}   // default: A–Z by name
+  else{var flip=(METRIC&&METRIC.hiWorse===false)?-1:1;                                            // resid: higher = better, so flip
+    var sv=function(d){var v=METRIC?METRIC.val(d):ratingOf(d);return v==null?-Infinity:flip*v;};  // normalized so higher = worse
+    var dir=sortMode==="worst"?1:-1;                                                              // worst = desc, best = asc
+    vis.sort(function(a,b){return dir*(sv(b)-sv(a))|| a.n.localeCompare(b.n);});}
   document.getElementById("count").textContent=vis.length.toLocaleString()+" places";
   var cap=Math.min(vis.length,400),h="";
   for(var i=0;i<cap;i++){var d=vis[i];
@@ -903,9 +905,9 @@ var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e
   qc.addEventListener("click",function(){clearTimeout(qt);q.value="";query="";render();q.focus();});})();
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
 // "recently changed" sorts by recency, so its label reads newest/oldest; every other metric reads worst/best
-function sortLabel(){return colorMode==="changed"?(sortDir>0?"newest first":"oldest first"):(sortDir>0?"worst first":"best first");}
+function sortLabel(){if(sortMode==="alpha")return "A–Z";if(colorMode==="changed")return sortMode==="worst"?"newest first":"oldest first";return sortMode==="worst"?"worst first":"best first";}
 function updateSortLabel(){var el=document.getElementById("sortdir");if(el)el.textContent=sortLabel();}
-document.getElementById("sortdir").onclick=function(){sortDir=-sortDir;updateSortLabel();renderList();};
+document.getElementById("sortdir").onclick=function(){sortMode=sortMode==="alpha"?"best":(sortMode==="best"?"worst":"alpha");updateSortLabel();renderList();};
 // click the title bar to collapse/expand the filter+list panel (frees the map, esp. on mobile)
 document.getElementById("head").onclick=function(e){if(e.target.id==="q"||e.target.tagName==="INPUT"||e.target.closest(".statslink"))return;
   if(!window.matchMedia("(max-width:720px)").matches)return;   // collapse only on mobile
