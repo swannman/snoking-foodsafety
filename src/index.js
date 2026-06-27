@@ -481,6 +481,9 @@ const MAP_HTML = String.raw`<!doctype html>
     /* move zoom buttons clear of the header overlay (top) and legend (bottom-left) */
     .leaflet-top.leaflet-left{top:auto;left:auto;bottom:12px;right:12px}
   }
+  /* while a restaurant card is open, hide the legend + (on phones) the zoom buttons so they don't cover it */
+  body.popup-open #legend{display:none}
+  @media (max-width:720px){body.popup-open .leaflet-control-zoom{display:none}}
 </style></head><body>
 <div id="wrap">
   <div id="feed">
@@ -669,6 +672,28 @@ function applyMetric(mode){
   dualSlider(document.getElementById("rslider"),METRIC.min,METRIC.max,fRange.slice(),
     function(v){fRange=v;render();},
     function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);
+}
+// persist the full map state (center/zoom + every filter) so leaving for /about or /stats and
+// clicking "back to map" returns you exactly where you were. sessionStorage = tab-scoped, auto-cleared.
+function saveView(){try{sessionStorage.setItem("snoking_view",JSON.stringify({
+  la:map.getCenter().lat,lo:map.getCenter().lng,z:map.getZoom(),
+  cu:document.getElementById("cuisine").value,cm:colorMode,sm:sortMode,fr:fRange,q:query,t:Date.now()}));}catch(e){}}
+function restoreView(rv){
+  // shade-by first (applyMetric rebuilds the range slider + resets fRange to the metric default)
+  if(rv.cm){var cb=document.getElementById("colorby");if(cb)cb.value=rv.cm;colorMode=rv.cm;}
+  applyMetric(colorMode);
+  // re-apply the saved range over the freshly-rebuilt slider (skip if this metric has no slider, e.g. cuisine)
+  if(rv.fr&&METRIC){fRange=rv.fr.slice();
+    dualSlider(document.getElementById("rslider"),METRIC.min,METRIC.max,fRange.slice(),
+      function(v){fRange=v;render();},
+      function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);}
+  if(rv.cu!=null){var sel=document.getElementById("cuisine");sel.value=rv.cu;
+    if(rv.cu==="__fav"){favOnly=true;fCuisine="";}else{favOnly=false;fCuisine=rv.cu;}}
+  if(rv.sm)sortMode=rv.sm;
+  if(rv.q){query=rv.q;var qi=document.getElementById("q");if(qi)qi.value=rv.q;}
+  updateSortLabel();
+  if(rv.la!=null&&rv.lo!=null&&rv.z!=null)map.setView([rv.la,rv.lo],rv.z);
+  recolor();
 }
 // the cluster is represented by its WORST member ON THE ACTIVE shade metric, so the bubble's
 // color + emoji always match the worst item shown in the list popup. "Worseness" normalizes so
@@ -908,9 +933,9 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   document.getElementById("colorby").onchange=function(){colorMode=this.value;applyMetric(colorMode);updateSortLabel();recolor();track("shade",this.value);};
   if(j.updated){var u=new Date(j.updated);document.getElementById("upd").textContent="Updated "+(isNaN(u)?j.updated:u.toLocaleDateString());}
   render();renderLegend();
-  // restore the map position after an auto-reload (build update); otherwise fit the whole region
+  // restore the prior view+filters when returning from /about, /stats, or an auto-reload; else fit the region
   var rv=null;try{rv=JSON.parse(sessionStorage.getItem("snoking_view")||"null");sessionStorage.removeItem("snoking_view");}catch(e){}
-  if(rv&&Date.now()-rv.t<60000){map.setView([rv.la,rv.lo],rv.z);}
+  if(rv&&Date.now()-rv.t<1800000){restoreView(rv);}
   else{var la=ALL.map(function(d){return d.la;}),lo=ALL.map(function(d){return d.lo;});
     if(ALL.length)map.fitBounds([[Math.min.apply(0,la),Math.min.apply(0,lo)],[Math.max.apply(0,la),Math.max.apply(0,lo)]],{padding:[20,20]});}
   applyUrlIntent();
@@ -957,8 +982,8 @@ document.getElementById("loc").onclick=function(e){e.stopPropagation();var btn=t
 var reCull=null;
 map.on("moveend",function(){renderList();   // list follows the visible map region
   if(!emojiMode)return;clearTimeout(reCull);reCull=setTimeout(function(){if(emojiMode&&!popupOpen)drawMarkers(lastVis);},220);});
-map.on("popupopen",function(){popupOpen=true;clearTimeout(reCull);});
-map.on("popupclose",function(){popupOpen=false;if(emojiMode)drawMarkers(lastVis);});
+map.on("popupopen",function(){popupOpen=true;clearTimeout(reCull);document.body.classList.add("popup-open");});   // hide legend/zoom so they don't cover the card
+map.on("popupclose",function(){popupOpen=false;document.body.classList.remove("popup-open");if(emojiMode)drawMarkers(lastVis);});
 // ── favorites (stored locally, no login) + push alerts ──
 var FAVKEY="snoking_favs", favOnly=false, VAPID_PUBLIC="BLUPpCG20smyXKX1k3fCvNd-7VyRHWjpIriPjy56_yc2-GotKcWD750ID015AQa4yYwdZSjBeq-LRBl3eEz0F9I";
 function getFavs(){try{return JSON.parse(localStorage.getItem(FAVKEY)||"[]");}catch(e){return [];}}
@@ -1021,13 +1046,14 @@ function checkForUpdate(){
   fetch("/api/version").then(function(r){return r.json();}).then(function(j){
     if(!j)return;
     if(j.b&&encodeURIComponent(j.b)!==BUILD_VERSION){   // a new build is deployed -> reload to pick up new code (no force-quit)
-      try{sessionStorage.setItem("snoking_view",JSON.stringify({la:map.getCenter().lat,lo:map.getCenter().lng,z:map.getZoom(),t:Date.now()}));}catch(e){}
-      location.reload();return;
+      saveView();location.reload();return;
     }
     if(j.v&&encodeURIComponent(j.v)!==DATA_VERSION)refreshData(encodeURIComponent(j.v));
   }).catch(function(){});
 }
 document.addEventListener("visibilitychange",checkForUpdate);
+// save the view whenever we leave the page (navigating to /about, /stats, etc.) so "back to map" restores it
+window.addEventListener("pagehide",saveView);
 // hide the bell entirely on browsers without web-push support; otherwise wire enable/disable
 var bellEl=document.getElementById("bell");
 if(!pushSupported()){if(bellEl)bellEl.style.display="none";}
