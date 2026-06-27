@@ -102,9 +102,11 @@ export default {
     // straight from Cloudflare's edge (no Worker invocation) — see public/ + [assets] in wrangler.toml.
 
     if (url.pathname === "/ev" && req.method === "POST") {
-      // anonymous product-usage event: {n: name, l: label}. No PII; powers "what do people use".
-      try { const b = JSON.parse(await req.text()); const n = String(b.n || "").slice(0, 40), l = String(b.l || "").slice(0, 80);
-        if (n && env.AE) env.AE.writeDataPoint({ indexes: [n], blobs: [n, l] }); } catch {}
+      // anonymous product-usage event: {n: name, l: label, l2/l3: extra dimensions}. No user PII;
+      // l2/l3 carry public business attrs (cuisine, restaurant name) for "what do people check" breakdowns.
+      try { const b = JSON.parse(await req.text());
+        const n = String(b.n || "").slice(0, 40), l = String(b.l || "").slice(0, 80), l2 = String(b.l2 || "").slice(0, 40), l3 = String(b.l3 || "").slice(0, 90);
+        if (n && env.AE) env.AE.writeDataPoint({ indexes: [n], blobs: [n, l, l2, l3] }); } catch {}
       return new Response(null, { status: 204 });
     }
 
@@ -126,6 +128,10 @@ export default {
         shade: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='shade' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         cuisine: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='filter' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
         county: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        openCuisine: `SELECT blob3 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob3!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 20`,
+        openRest: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
+        savedRest: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='fav' AND blob2='add' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
+        nav: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='nav' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         install: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='app' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         hourly: `SELECT toStartOfHour(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens FROM snoking_events WHERE timestamp > now() - INTERVAL '2' DAY GROUP BY k ORDER BY k`
       };
@@ -535,7 +541,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Zoom to my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" id="lnk-stats" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" id="lnk-bloop" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Zoom to my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <div class="qwrap"><button type="button" id="qclear" aria-label="Clear search" title="Clear">×</button><input id="q" placeholder="Search name or address…" autocomplete="off"></div>
@@ -967,7 +973,7 @@ function wirePopup(root,d,onLoaded){
       if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
   else if(onLoaded)onLoaded();
   var fb=root.querySelector(".favbtn");
-  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#fbe7b3":"#fff";fb.style.color=on?"#7a5c00":"#b8860b";};
+  if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id,d);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#fbe7b3":"#fff";fb.style.color=on?"#7a5c00":"#b8860b";};
 }
 function bindPopupOpen(m,d){m.on("popupopen",function(e){wirePopup(e.popup.getElement(),d);});}
 // popup for a location: 1 establishment -> its detail; several -> a tappable list -> drill into detail
@@ -993,7 +999,7 @@ function openLocPopup(loc,focusD,mode){
   var pop=L.popup({maxWidth:300,minWidth:280,autoPan:false}).setLatLng([loc.la,loc.lo]).openOn(map);
   function showList(){pop.setContent(locListHtml(vm));setTimeout(function(){var root=pop.getElement();if(!root)return;
     root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});ensurePopupTop(pop);},0);}
-  function showDetail(d){track("open",d.co);pop.setContent((vm.length>1?'<div class="loc-back" style="margin-bottom:6px;font-size:11.5px;color:#0969da;cursor:pointer">&larr; '+vm.length+' at this address</div>':'')+popupShell(d));
+  function showDetail(d){track("open",d.co,CU_LABEL[d.cu]||"Other",d.n);pop.setContent((vm.length>1?'<div class="loc-back" style="margin-bottom:6px;font-size:11.5px;color:#0969da;cursor:pointer">&larr; '+vm.length+' at this address</div>':'')+popupShell(d));
     setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d,function(){fitPopup(pop);ensurePopupTop(pop);});var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};ensurePopupTop(pop);},0);}
   if(vm.length===1)showDetail(vm[0]);
   else if(focusD&&vm.indexOf(focusD)>=0)showDetail(focusD);
@@ -1058,7 +1064,7 @@ document.getElementById("head").onclick=function(e){if(e.target.id==="q"||e.targ
   setTimeout(function(){map.invalidateSize();},210);};
 // 📍 locate the user, drop a marker, and zoom in
 var meMarker=null;
-document.getElementById("loc").onclick=function(e){e.stopPropagation();var btn=this;
+document.getElementById("loc").onclick=function(e){e.stopPropagation();var btn=this;track("locate");
   if(!navigator.geolocation){alert("Location isn't available in this browser.");return;}
   btn.classList.add("locating");
   navigator.geolocation.getCurrentPosition(function(p){btn.classList.remove("locating");
@@ -1071,6 +1077,9 @@ document.getElementById("loc").onclick=function(e){e.stopPropagation();var btn=t
     map.setView([la,lo],16);
   },function(err){btn.classList.remove("locating");alert("Couldn't get your location: "+err.message);},
   {enableHighAccuracy:true,timeout:10000,maximumAge:60000});};
+// nav-link click tracking (sendBeacon fires before navigation): stats / bloopers / about pages
+[["lnk-stats","stats"],["lnk-bloop","bloopers"],["about","about"]].forEach(function(p){
+  var el=document.getElementById(p[0]);if(el)el.addEventListener("click",function(){track("nav",p[1]);});});
 // in emoji mode, re-cull to the new viewport (and switch dots<->emoji across the zoom threshold).
 // DEBOUNCED: a tap on mobile jitters the map slightly -> moveend; without the delay the re-cull
 // would destroy the tapped marker before its click lands, so taps never register. The delay lets
@@ -1084,10 +1093,10 @@ map.on("popupclose",function(){popupOpen=false;document.body.classList.remove("p
 var FAVKEY="snoking_favs", favOnly=false, VAPID_PUBLIC="BLUPpCG20smyXKX1k3fCvNd-7VyRHWjpIriPjy56_yc2-GotKcWD750ID015AQa4yYwdZSjBeq-LRBl3eEz0F9I";
 function getFavs(){try{return JSON.parse(localStorage.getItem(FAVKEY)||"[]");}catch(e){return [];}}
 function isFav(id){return getFavs().indexOf(id)>=0;}
-function toggleFav(id){var f=getFavs(),i=f.indexOf(id);if(i>=0)f.splice(i,1);else f.push(id);localStorage.setItem(FAVKEY,JSON.stringify(f));syncPush();if(favOnly)render();track("fav",i<0?"add":"remove");return i<0;}
+function toggleFav(id,d){var f=getFavs(),i=f.indexOf(id);if(i>=0)f.splice(i,1);else f.push(id);localStorage.setItem(FAVKEY,JSON.stringify(f));syncPush();if(favOnly)render();track("fav",i<0?"add":"remove",d?(CU_LABEL[d.cu]||"Other"):"",d?d.n:"");return i<0;}
 function pushSupported(){return ("serviceWorker" in navigator)&&("PushManager" in window)&&("Notification" in window);}
 // anonymous product-usage event (no PII): which views/filters/features people use
-function track(n,l){try{var b=JSON.stringify({n:n,l:l||""});if(navigator.sendBeacon)navigator.sendBeacon("/ev",b);else fetch("/ev",{method:"POST",body:b,keepalive:true});}catch(e){}}
+function track(n,l,l2,l3){try{var o={n:n,l:l||""};if(l2)o.l2=l2;if(l3)o.l3=l3;var b=JSON.stringify(o);if(navigator.sendBeacon)navigator.sendBeacon("/ev",b);else fetch("/ev",{method:"POST",body:b,keepalive:true});}catch(e){}}
 function urlB64ToU8(s){var pad="=".repeat((4-s.length%4)%4),b=atob((s+pad).replace(/-/g,"+").replace(/_/g,"/")),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
 function pushOn(){return localStorage.getItem("snoking_push")==="1";}
 function updateBell(){var el=document.getElementById("bell");if(el)el.style.opacity=pushOn()?"1":".4";}
@@ -1599,6 +1608,16 @@ const DASH_HTML = String.raw`<!doctype html>
   @media(max-width:640px){.cols{grid-template-columns:1fr}}
   .row{display:flex;align-items:center;gap:9px;margin:5px 0;font-size:12.5px}
   .row .lbl{width:118px;flex:none;color:#c9d2dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* instant custom tooltip (the native title attribute has a ~1s browser delay) */
+  [data-tip]{position:relative}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);background:#0b0f14;color:#e6edf3;border:1px solid var(--line);padding:5px 8px;border-radius:6px;font-size:11.5px;line-height:1.35;z-index:30;box-shadow:0 6px 18px rgba(0,0,0,.55);pointer-events:none}
+  .row[data-tip]{cursor:help}
+  .row[data-tip] .lbl{text-decoration:underline dotted #4a5563;text-underline-offset:2px}
+  .row[data-tip]:hover::after{left:0;white-space:normal;max-width:300px;width:max-content}
+  .spark .b[data-tip]:hover::after{left:50%;transform:translateX(-50%);white-space:nowrap}
+  .wide .row .lbl{width:auto;flex:1;max-width:62%}
+  .axis{display:flex;gap:2px;margin-top:3px}
+  .axis .t{flex:1;min-width:2px;font-size:9px;color:var(--muted);text-align:center;white-space:nowrap;overflow:visible}
   .row .bar{flex:1;height:15px;background:#0d1117;border-radius:4px;overflow:hidden}
   .row .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
   .row .val{width:54px;flex:none;text-align:right;color:#c9d2dc;font-variant-numeric:tabular-nums}
@@ -1630,11 +1649,17 @@ const DASH_HTML = String.raw`<!doctype html>
     <section><h2>Shade-by views</h2><div id="shade"></div></section>
     <section><h2>Cuisine filters</h2><div id="cuisine"></div></section>
   </div>
+  <section class="wide"><h2>Most-checked restaurants</h2><div id="openRest"></div></section>
+  <section class="wide"><h2>Most-saved restaurants</h2><div id="savedRest"></div></section>
   <div class="cols">
+    <section><h2>Opens by cuisine</h2><div id="openCuisine"></div></section>
     <section><h2>Opens by county</h2><div id="county"></div></section>
+  </div>
+  <div class="cols">
+    <section><h2>Stats / Bloopers / About opens</h2><div id="nav"></div></section>
     <section><h2>Event types</h2><div id="byType"></div></section>
   </div>
-  <section><h2>Last 48h &mdash; sessions per hour (local)</h2><div class="spark" id="hourly"></div></section>
+  <section><h2>Last 48h &mdash; sessions per hour (local)</h2><div id="hourly"></div></section>
   <p class="muted" id="foot"></p>
 </main>
 <script>
@@ -1646,12 +1671,16 @@ const DASH_HTML = String.raw`<!doctype html>
   function n(x){return parseInt(x,10)||0;}
   function fmt(x){return n(x).toLocaleString();}
   function clab(k){return k==="k"?"King":k==="s"?"Snohomish":(k||"(none)");}
-  function barList(elId,rows,labelFn){
+  var SHADE_LABELS={rating:"Rating — latest inspection",routine:"Last routine rating (ignores reinspections)",avg:"Average of the last 5 inspections",worstpts:"Worst inspection on record (violation points)",poorfrac:"% of routines that came back Okay-or-worse (chronic)",resid:"vs cuisine norm — over/under-performers vs same cuisine",changed:"Recently changed — new + rating up/down",age:"Years in operation",cuisine:"Shaded by cuisine type"};
+  var EVENT_LABELS={open:"Opened a restaurant card",app:"App load (session start)",hist:"Expanded an inspection-history date",shade:"Changed the shade-by metric",search:"Used the name/address search",filter:"Changed the cuisine filter",ref:"Visit referrer (where it came from)",fav:"Saved/unsaved a favorite",alerts:"Enabled/disabled push alerts",about:"Opened the About page",nav:"Opened Stats / Bloopers / About",locate:"Tapped Zoom-to-my-location"};
+  var NAV_LABELS={stats:"Per-capita / stats map",bloopers:"Inspection bloopers reel",about:"About & methodology"};
+  function barList(elId,rows,labelFn,titleMap){
     var el=document.getElementById(elId);
     if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
     var max=0;rows.forEach(function(r){if(n(r.v)>max)max=n(r.v);});max=max||1;
-    var h="";rows.forEach(function(r){var v=n(r.v),pct=Math.round(v/max*100);
-      h+='<div class="row"><span class="lbl">'+esc(labelFn?labelFn(r.k):(r.k||"(none)"))+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(v)+'</span></div>';});
+    var h="";rows.forEach(function(r){var v=n(r.v),pct=Math.round(v/max*100),lab=labelFn?labelFn(r.k):(r.k||"(none)");
+      var ttl=titleMap===true?lab:(titleMap?(titleMap[r.k]||""):"");
+      h+='<div class="row"'+(ttl?' data-tip="'+esc(ttl)+'"':'')+'><span class="lbl">'+esc(lab)+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(v)+'</span></div>';});
     el.innerHTML=h;
   }
   function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
@@ -1667,10 +1696,13 @@ const DASH_HTML = String.raw`<!doctype html>
     var el=document.getElementById("hourly");
     if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
     var max=0;rows.forEach(function(r){if(n(r.sessions)>max)max=n(r.sessions);});max=max||1;
-    var h="";rows.forEach(function(r){var s=n(r.sessions),ht=Math.max(2,Math.round(s/max*100)),dt=new Date(r.k.replace(" ","T")+"Z");
-      var lab=dt.toLocaleString([], {month:"numeric",day:"numeric",hour:"numeric"});
-      h+='<span class="b" style="height:'+ht+'%" title="'+lab+": "+s+' sessions"></span>';});
-    el.innerHTML=h;
+    var bars="",axis="";rows.forEach(function(r){var s=n(r.sessions),ht=Math.max(2,Math.round(s/max*100)),dt=new Date(r.k.replace(" ","T")+"Z");
+      var tip=dt.toLocaleString([], {weekday:"short",hour:"numeric"})+": "+s+" sessions";
+      bars+='<span class="b" data-tip="'+esc(tip)+'" style="height:'+ht+'%"></span>';
+      var hr=dt.getHours();   // sparse x-axis ticks: date at local midnight, am/pm markers at 6/12/18
+      var t=hr===0?dt.toLocaleDateString([], {month:"numeric",day:"numeric"}):(hr===6?"6a":(hr===12?"12p":(hr===18?"6p":"")));
+      axis+='<span class="t">'+t+'</span>';});
+    el.innerHTML='<div class="spark">'+bars+'</div><div class="axis">'+axis+'</div>';
   }
   function tiles(d){
     var sess=0,opens=0,events=0,inst=0;
@@ -1689,8 +1721,10 @@ const DASH_HTML = String.raw`<!doctype html>
     }).then(function(d){
       gate.hidden=true;app.hidden=false;
       tiles(d);renderDaily(d.daily);renderHourly(d.hourly);
-      barList("referrers",d.referrers);barList("shade",d.shade);barList("cuisine",d.cuisine);
-      barList("county",d.county,clab);barList("byType",d.byType);
+      barList("referrers",d.referrers);barList("shade",d.shade,null,SHADE_LABELS);barList("cuisine",d.cuisine);
+      barList("county",d.county,clab);barList("byType",d.byType,null,EVENT_LABELS);
+      barList("openRest",d.openRest,null,true);barList("savedRest",d.savedRest,null,true);barList("openCuisine",d.openCuisine);
+      barList("nav",d.nav,null,NAV_LABELS);
       document.getElementById("foot").textContent="Counts are sampling-estimated. Updated "+new Date().toLocaleString();
     }).catch(function(){});
   }
