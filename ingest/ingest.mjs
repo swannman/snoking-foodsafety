@@ -392,8 +392,11 @@ function parseCityStateZip(s) {
 function cleanStreet(a) {
   let s = (a || "").replace(/\s+/g, " ").trim();
   s = s.replace(/\s+(STE|SUITE|UNIT|APT|BLDG|RM|#).*$/i, "");
-  s = s.replace(/\s+[#].*$/, "").replace(/\s+\d+\s*$/, "").replace(/\s+[A-Z]\s*$/, "").trim();
-  return s;
+  s = s.replace(/\s+[#].*$/, "");
+  // strip a trailing bare suite number/letter — but NOT a highway route number ("… HIGHWAY 99", "… SR 99")
+  if (!/\b(HIGHWAY|HWY|SR|STATE ROUTE|ROUTE|RTE|US|HW)\s+\d+$/i.test(s))
+    s = s.replace(/\s+\d+\s*$/, "").replace(/\s+[A-Z]\s*$/, "");
+  return s.trim();
 }
 function parseCsvLine(line) {
   const out = []; let cur = "", q = false;
@@ -436,11 +439,13 @@ async function geocodeSno(recs) {
     const found = await censusBatch(need);
     for (const n of need) { const h = found.get(n.id); if (h) { n.rec.lat = h.lat; n.rec.lon = h.lon; cache[n.key] = h; } }
     const misses = need.filter((n) => !found.has(n.id));
-    console.log(`\n  sno geocode: ${misses.length} batch misses -> oneline fallback`);
-    let d = 0, fb = 0;
-    for (const n of misses) { const h = await onelineGeocode(n.street, n.city, n.zip);
+    console.log(`\n  sno geocode: ${misses.length} batch misses -> oneline + Google fallback`);
+    let d = 0, fb = 0, gb = 0;
+    for (const n of misses) { let h = await onelineGeocode(n.street, n.city, n.zip);
+      // Census can't place highways / SR-99 / odd suites — let Google try the RAW (un-cleaned) address
+      if (!h) { h = await googleGeocode([n.rec.address, n.city, "WA", n.zip].filter(Boolean).join(", ")); if (h) gb++; }
       if (h) { n.rec.lat = h.lat; n.rec.lon = h.lon; cache[n.key] = h; fb++; } await sleep(120);
-      if (++d % 25 === 0) process.stdout.write(`  oneline: ${d}/${misses.length} (${fb} found)\r`); }
+      if (++d % 25 === 0) process.stdout.write(`  fallback: ${d}/${misses.length} (${fb} found, ${gb} via Google)\r`); }
     writeFileSync(CACHE_PATH, JSON.stringify(cache));
   }
   console.log(`\n  sno: ${recs.filter((r) => r.lat != null).length}/${recs.length} geocoded`);

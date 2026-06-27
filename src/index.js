@@ -113,7 +113,10 @@ export default {
       return new Response(DASH_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
     }
     if (url.pathname === "/dash/data") {
-      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
+      // read-only endpoint: accept the dedicated dashboard token, or the ingest token as a fallback
+      const auth = req.headers.get("Authorization") || "";
+      const ok = (env.DASH_TOKEN && auth === "Bearer " + env.DASH_TOKEN) || auth === "Bearer " + env.INGEST_TOKEN;
+      if (!ok) return new Response("unauthorized", { status: 401 });
       const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get("days") || "7", 10) || 7));
       const since = `now() - INTERVAL '${days}' DAY`;
       const Q = {
@@ -1615,7 +1618,7 @@ const DASH_HTML = String.raw`<!doctype html>
 </header>
 <div id="gate" hidden>
   <h2>Enter dashboard token</h2>
-  <input id="tok" type="password" placeholder="INGEST_TOKEN" autocomplete="off">
+  <input id="tok" type="password" placeholder="dashboard token" autocomplete="off">
   <button id="save">Open dashboard</button>
   <p class="muted" id="gerr"></p>
 </div>
