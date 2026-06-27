@@ -29,6 +29,16 @@ async function sha256hex(s) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+// run a read-only Analytics Engine SQL query (AE_API_TOKEN = scoped "Account Analytics Read" token)
+async function aeQuery(env, sql) {
+  try {
+    const r = await fetch("https://api.cloudflare.com/client/v4/accounts/e586791371224fd8a71725fce7f6f1a6/analytics_engine/sql",
+      { method: "POST", headers: { Authorization: "Bearer " + env.AE_API_TOKEN }, body: sql });
+    if (!r.ok) return [];
+    const j = await r.json();
+    return j.data || [];
+  } catch { return []; }
+}
 function buildPayload(chs) {
   const L = RATING_LABEL, dir = (c) => (c.pr == null ? "new" : c.r < c.pr ? "↑" : "↓");
   if (chs.length === 1) {
@@ -96,6 +106,30 @@ export default {
       try { const b = JSON.parse(await req.text()); const n = String(b.n || "").slice(0, 40), l = String(b.l || "").slice(0, 80);
         if (n && env.AE) env.AE.writeDataPoint({ indexes: [n], blobs: [n, l] }); } catch {}
       return new Response(null, { status: 204 });
+    }
+
+    // ── token-gated analytics dashboard ──
+    if (url.pathname === "/dashboard") {
+      return new Response(DASH_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
+    }
+    if (url.pathname === "/dash/data") {
+      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
+      const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get("days") || "7", 10) || 7));
+      const since = `now() - INTERVAL '${days}' DAY`;
+      const Q = {
+        daily: `SELECT toDate(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens, sum(_sample_interval) AS events FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY k`,
+        byType: `SELECT blob1 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        referrers: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='ref' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
+        shade: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='shade' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        cuisine: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='filter' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
+        county: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        install: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='app' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        hourly: `SELECT toStartOfHour(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens FROM snoking_events WHERE timestamp > now() - INTERVAL '2' DAY GROUP BY k ORDER BY k`
+      };
+      const keys = Object.keys(Q), out = {};
+      const rs = await Promise.all(keys.map((k) => aeQuery(env, Q[k])));
+      keys.forEach((k, i) => { out[k] = rs[i]; });
+      return Response.json(out, { headers: { "Cache-Control": "no-store" } });
     }
 
     if (url.pathname === "/push/subscribe" && req.method === "POST") {
@@ -401,7 +435,7 @@ const MAP_HTML = String.raw`<!doctype html>
   #feed.collapsed #controls,#feed.collapsed #listhead,#feed.collapsed #list{display:none}
   #feed.collapsed{height:auto;min-height:0}
   .sub{color:var(--muted);font-size:11.5px;margin:3px 0 0}
-  #controls{padding:10px 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
+  #controls{padding:10px 16px 24px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
   #q{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:#0d1117;color:var(--ink);font-size:13px}
   .qwrap{position:relative}
   #qclear{display:none;position:absolute;left:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:0;border-radius:50%;background:#30363d;color:#c9d1d9;font:14px/18px system-ui;text-align:center;cursor:pointer;padding:0}
@@ -427,10 +461,14 @@ const MAP_HTML = String.raw`<!doctype html>
   #legend h4{margin:0 0 6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
   #legend .lg{display:flex;align-items:center;gap:7px;line-height:18px}
   #legend .sw{width:11px;height:11px;border-radius:50%;flex:none}
-  .chips{display:flex;gap:6px;margin-top:6px}
-  .chip{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 4px;border:1px solid var(--line);border-radius:7px;background:#0d1117;cursor:pointer;font-size:11.5px;user-select:none}
-  .chip.off{opacity:.4}
-  .chip .sw{width:10px;height:10px;border-radius:50%}
+  /* single-row connected segmented control (multi-select) used for discrete/bucketed rating filters */
+  .segs{display:flex;margin:6px 0 8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-left:1px solid var(--line);background:#0d1117;cursor:pointer;font-size:9.5px;line-height:1.15;text-align:center;color:#c9d2dc;user-select:none;-webkit-tap-highlight-color:transparent}
+  .seg:first-child{border-left:0}
+  .seg:not(.off){background:#161c24}
+  .seg .sw{width:12px;height:12px;border-radius:50%;flex:none}
+  .seg.off{opacity:.34}
+  .seg.off .sw{filter:grayscale(.55)}
   #listhead{padding:7px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
   #list{flex:1;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
   #list::-webkit-scrollbar{display:none}
@@ -449,6 +487,10 @@ const MAP_HTML = String.raw`<!doctype html>
   .sv{width:100%;height:130px;object-fit:cover;border-radius:6px;display:block;margin-bottom:7px;cursor:pointer;background:#eee}
   .pp-sec{margin-top:8px;border-top:1px solid #e3e3e3;padding-top:6px}
   .pp-sec h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#888}
+  .ppsec>summary{list-style:none;cursor:pointer;margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#888}
+  .ppsec>summary::-webkit-details-marker{display:none}
+  .ppsec>summary::before{content:"▾";font-size:9px;margin-right:5px;color:#aaa}
+  .ppsec:not([open])>summary::before{content:"▸"}
   .viol{font-size:11.5px;margin-bottom:5px}
   .viol .vh,.viold>summary{font-weight:600;color:#222;font-size:11.5px}
   .viol .vt,.viold .vt{display:inline-block;font-size:9.5px;font-weight:700;color:#fff;padding:1px 5px;border-radius:4px;margin-right:5px;vertical-align:1px}
@@ -466,7 +508,7 @@ const MAP_HTML = String.raw`<!doctype html>
   .histd>summary .hr::after{content:"▸";color:#aaa;font-size:9px;margin-left:6px}
   .histd[open]>summary .hr::after{content:"▾"}
   .histd[open]>summary{font-weight:600;color:#111}
-  .histv{padding:3px 0 6px 14px}
+  .histv{padding:3px 0 6px 0}
   .pp-link{display:inline-block;margin-top:7px;font-size:11.5px;color:#0969da;text-decoration:none;font-weight:600}
   .loading{color:#999;font-size:11.5px}
   @media (max-width:720px){
@@ -474,12 +516,14 @@ const MAP_HTML = String.raw`<!doctype html>
     #map{position:absolute;inset:0;height:100%;width:100%}
     /* filter panel becomes a scrollable overlay over a full-screen map, so all
        controls are reachable (no fixed-height clipping) */
-    #feed{position:absolute;top:0;left:0;right:0;z-index:1000;width:auto;min-width:0;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-right:0;border-bottom:1px solid var(--line);box-shadow:0 10px 28px rgba(0,0,0,.45)}
+    #feed{position:absolute;top:0;left:0;right:0;z-index:1000;width:auto;min-width:0;max-height:100dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-right:0;border-bottom:1px solid var(--line);box-shadow:0 10px 28px rgba(0,0,0,.45)}
     #feed.collapsed{max-height:none;overflow:visible;box-shadow:none}
     #list{flex:none}
     #legend{left:14px;bottom:14px;z-index:500}
     /* move zoom buttons clear of the header overlay (top) and legend (bottom-left) */
     .leaflet-top.leaflet-left{top:auto;left:auto;bottom:12px;right:12px}
+    /* when the filter panel is open it covers the map, so hide the zoom buttons hovering over it */
+    #feed:not(.collapsed) ~ #map .leaflet-control-zoom{display:none}
   }
   /* while a restaurant card is open, hide the legend + (on phones) the zoom buttons so they don't cover it */
   body.popup-open #legend{display:none}
@@ -500,11 +544,11 @@ const MAP_HTML = String.raw`<!doctype html>
         <label>Shade by <span class="vals" id="emojihint" style="font-weight:400;color:var(--muted)"></span></label>
         <select id="colorby">
           <option value="rating">Rating (latest)</option>
+          <option value="resid">vs cuisine norm (over/under-performers)</option>
           <option value="routine">Last routine (ignores reinspections)</option>
           <option value="avg">Avg of last 5 inspections</option>
           <option value="worstpts">Worst inspection (points)</option>
           <option value="poorfrac">% routines Okay-or-worse (chronic)</option>
-          <option value="resid">vs cuisine norm (over/under-performers)</option>
           <option value="changed">Recently changed (new + up/down)</option>
           <option value="age">Years in operation</option>
           <option value="cuisine">Cuisine</option>
@@ -641,19 +685,31 @@ var fCuisine="", coOn={k:1,s:1}, query="";
 // config (value accessor + min/max/step/label/format), fRange is its current [lo,hi]. Cuisine
 // mode has no numeric metric (METRIC=null) so the slider is hidden. MET is built after load
 // because worstpts/age maxima come from the data.
-var MET={}, METRIC=null, fRange=[1,4], curVisEst=[];
+var MET={}, METRIC=null, fRange=[1,4], chipSel=[], curVisEst=[];   // chipSel = selected bucket indices for chip metrics
 // each metric: val=accessor, fmt=range label for the slider, disp=single-value label for the list row
-function buildMetrics(){MET={
-  rating:{label:"Rating",min:1,max:4,step:1,val:function(d){return d.r;},fmt:function(a,b){return a===b?RLABELS[a]:RLABELS[a]+" – "+RLABELS[b];},disp:function(d){return LABEL[ratingOf(d)];}},
-  avg:{label:"Avg of last 5",min:1,max:4,step:0.1,val:function(d){return d.ra;},fmt:function(a,b){return a.toFixed(1)+" – "+b.toFixed(1);},disp:function(d){return d.ra==null?"no history":"avg "+d.ra.toFixed(1)+" / 4";}},
-  routine:{label:"Last routine rating",min:1,max:4,step:1,val:function(d){return d.rr;},fmt:function(a,b){return a===b?RLABELS[a]:RLABELS[a]+" – "+RLABELS[b];},disp:function(d){return d.rr==null?"no routine":LABEL[d.rr]+" (routine)";}},
+function buildMetrics(){
+  // "chip" metrics expose a buckets[] (label/color/match) -> a segmented multi-select instead of a slider.
+  // exact=true matches a discrete rating value; otherwise the continuous value is rounded into a 1–4 bucket.
+  // ordered worst→best so the best band (Excellent / Much better) sits on the RIGHT of the segmented control
+  function rbk(cf,exact){return [4,3,2,1].map(function(r){return {label:RLABELS[r],color:cf(r),
+    match:exact?function(v){return v===r;}:function(v){return Math.max(1,Math.min(4,Math.round(v)))===r;}};});}
+  var RESID_BK=[   // same 5 bands the legend shows, worst→best (best on the right)
+    {label:"Much worse",color:residColorAt(-1.3),match:function(v){return v<=-0.9;}},
+    {label:"Worse",color:residColorAt(-0.5),match:function(v){return v>-0.9&&v<=-0.25;}},
+    {label:"Typical",color:residColorAt(0),match:function(v){return v>-0.25&&v<0.25;}},
+    {label:"Better",color:residColorAt(0.5),match:function(v){return v>=0.25&&v<0.9;}},
+    {label:"Much better",color:residColorAt(1.3),match:function(v){return v>=0.9;}}];
+  MET={
+  rating:{label:"Rating",min:1,max:4,step:1,val:function(d){return d.r;},fmt:function(a,b){return a===b?RLABELS[a]:RLABELS[a]+" – "+RLABELS[b];},disp:function(d){return LABEL[ratingOf(d)];},buckets:rbk(function(r){return COLOR[r];},true)},
+  avg:{label:"Avg of last 5",min:1,max:4,step:0.1,val:function(d){return d.ra;},fmt:function(a,b){return a.toFixed(1)+" – "+b.toFixed(1);},disp:function(d){return d.ra==null?"no history":"avg "+d.ra.toFixed(1)+" / 4";},buckets:rbk(function(r){return avgColor({ra:r});},false)},
+  routine:{label:"Last routine rating",min:1,max:4,step:1,val:function(d){return d.rr;},fmt:function(a,b){return a===b?RLABELS[a]:RLABELS[a]+" – "+RLABELS[b];},disp:function(d){return d.rr==null?"no routine":LABEL[d.rr]+" (routine)";},buckets:rbk(function(r){return COLOR[r];},true)},
   worstpts:{label:"Worst inspection (pts)",min:0,max:WPMAX,step:5,val:function(d){return d.wp;},fmt:function(a,b){return a+" – "+(b>=WPMAX?b+"+":b)+" pts";},disp:function(d){return d.wp==null?"no inspections":d.wp+" pts worst";}},
   poorfrac:{label:"% routines Okay-or-worse",min:0,max:100,step:5,val:function(d){return d.pf==null?null:Math.round(d.pf*100);},fmt:function(a,b){return a+"% – "+b+"%";},disp:function(d){return d.pf==null?"no routine":Math.round(d.pf*100)+"% poor routines";}},
   age:{label:"Years in operation",min:0,max:maxAge,step:1,val:function(d){return ageOf(d);},fmt:function(a,b){return a+(b>=maxAge?" – "+b+"+":" – "+b)+" yr";},disp:function(d){var a=ageOf(d);return a==null?"age unknown":a+"y on record";}},
   // residual is signed: POSITIVE = better than the cuisine's mean. hiWorse:false flips the list sort.
   resid:{label:"vs cuisine norm",min:-1.3,max:1.3,step:0.1,hiWorse:false,val:function(d){return residOf(d);},
     fmt:function(a,b){return a.toFixed(1)+" … "+b.toFixed(1)+" vs peers";},
-    disp:function(d){var v=residOf(d);return v==null?"no rating":(v>=0?"+":"")+v.toFixed(2)+" vs "+(CU_LABEL[d.cu]||"cuisine")+" norm";}},
+    disp:function(d){var v=residOf(d);return v==null?"no rating":(v>=0?"+":"")+v.toFixed(2)+" vs "+(CU_LABEL[d.cu]||"cuisine")+" norm";},buckets:RESID_BK},
   // recency of the last rating change; hiWorse:false sorts the most-recent change to the top.
   // def opens the slider to the last 30 days; widen toward 90 to see more history.
   changed:{label:"Changed in last (days)",min:0,max:90,step:1,hiWorse:false,def:[0,30],val:function(d){return daysSince(d.cd);},
@@ -668,22 +724,38 @@ function applyMetric(mode){
   if(!METRIC){field.style.display="none";return;}
   field.style.display="";
   document.getElementById("rlabel").textContent=METRIC.label;
+  if(METRIC.buckets){chipSel=METRIC.buckets.map(function(_,i){return i;});renderSegs();return;}   // chip metric: all buckets on
+  document.getElementById("rval").textContent="";
   fRange=METRIC.def?METRIC.def.slice():[METRIC.min,METRIC.max];
   dualSlider(document.getElementById("rslider"),METRIC.min,METRIC.max,fRange.slice(),
     function(v){fRange=v;render();},
     function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);
 }
+// segmented multi-select for bucketed metrics: one tap toggles a band in/out (min one stays on)
+function renderSegs(){
+  var el=document.getElementById("rslider"),bk=METRIC.buckets;
+  document.getElementById("rval").textContent="";
+  var h='<div class="segs">';
+  bk.forEach(function(b,i){h+='<span class="seg'+(chipSel.indexOf(i)>=0?'':' off')+'" data-i="'+i+'"><span class="sw" style="background:'+b.color+'"></span>'+b.label+'</span>';});
+  el.innerHTML=h+'</div>';
+  el.querySelectorAll(".seg").forEach(function(s){s.onclick=function(){
+    var i=+s.dataset.i,at=chipSel.indexOf(i);
+    if(at>=0){if(chipSel.length>1){chipSel.splice(at,1);}}else{chipSel.push(i);}   // keep at least one selected
+    renderSegs();render();};});
+}
+function bucketOf(v){var bk=METRIC.buckets;for(var i=0;i<bk.length;i++)if(bk[i].match(v))return i;return -1;}
 // persist the full map state (center/zoom + every filter) so leaving for /about or /stats and
 // clicking "back to map" returns you exactly where you were. sessionStorage = tab-scoped, auto-cleared.
 function saveView(){try{sessionStorage.setItem("snoking_view",JSON.stringify({
   la:map.getCenter().lat,lo:map.getCenter().lng,z:map.getZoom(),
-  cu:document.getElementById("cuisine").value,cm:colorMode,sm:sortMode,fr:fRange,q:query,t:Date.now()}));}catch(e){}}
+  cu:document.getElementById("cuisine").value,cm:colorMode,sm:sortMode,fr:fRange,ch:chipSel,q:query,t:Date.now()}));}catch(e){}}
 function restoreView(rv){
   // shade-by first (applyMetric rebuilds the range slider + resets fRange to the metric default)
   if(rv.cm){var cb=document.getElementById("colorby");if(cb)cb.value=rv.cm;colorMode=rv.cm;}
   applyMetric(colorMode);
-  // re-apply the saved range over the freshly-rebuilt slider (skip if this metric has no slider, e.g. cuisine)
-  if(rv.fr&&METRIC){fRange=rv.fr.slice();
+  // re-apply the saved filter over the freshly-rebuilt control (slider range, or chip selection)
+  if(METRIC&&METRIC.buckets){if(rv.ch&&rv.ch.length){chipSel=rv.ch.slice();renderSegs();}}
+  else if(rv.fr&&METRIC){fRange=rv.fr.slice();
     dualSlider(document.getElementById("rslider"),METRIC.min,METRIC.max,fRange.slice(),
       function(v){fRange=v;render();},
       function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);}
@@ -737,10 +809,16 @@ function passes(d){
   if(colorMode==="worstpts"&&d.wp==null) return false;     // no inspections — hide from worst-points view
   if(colorMode==="poorfrac"&&d.pf==null) return false;     // no routine inspections — hide from chronic view
   if(colorMode==="changed"&&d.cd==null) return false;      // no tracked rating change — hide from recent-changes view
-  if(METRIC){                                              // range filter follows the shade-by metric
-    var v=METRIC.val(d), full=(fRange[0]<=METRIC.min&&fRange[1]>=METRIC.max);
-    if(v==null){ if(!full) return false; }                 // no value for this metric: only when fully open
-    else if(v<fRange[0]||v>fRange[1]) return false;
+  if(METRIC){                                              // value filter follows the shade-by metric
+    var v=METRIC.val(d);
+    if(METRIC.buckets){                                    // segmented chips: pass if v's band is selected
+      if(v==null){ if(chipSel.length<METRIC.buckets.length) return false; }   // no value: only when all bands on
+      else{var bi=bucketOf(v); if(bi<0||chipSel.indexOf(bi)<0) return false;}
+    }else{
+      var full=(fRange[0]<=METRIC.min&&fRange[1]>=METRIC.max);
+      if(v==null){ if(!full) return false; }               // no value for this metric: only when fully open
+      else if(v<fRange[0]||v>fRange[1]) return false;
+    }
   }
   if(query){var h=(d.n+" "+(d.a||"")+" "+(d.ci||"")).toLowerCase();if(h.indexOf(query)<0)return false;}
   return true;
@@ -824,41 +902,54 @@ function ensurePopupTop(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el
   if(cr.left<ml)dx=ml-cr.left;             // off the left  -> slide content right
   else if(cr.right>mrr)dx=-(cr.right-mrr); // off the right -> slide content left
   if(Math.abs(dx)>1||dy>1)map.panBy([-dx,-dy],{animate:true});}   // panBy moves the view; negate to move content
+// when a card is taller than the space below the header, collapse "Inspection history" first, then
+// "Most recent violations", so the whole card fits on-screen without scrolling. Runs once on open.
+function fitPopup(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)return;
+  var card=el.querySelector(".leaflet-popup-content-wrapper")||el,mr=map.getContainer().getBoundingClientRect();
+  var top=mr.top+14,feed=document.getElementById("feed");
+  if(feed&&window.matchMedia&&window.matchMedia("(max-width:720px)").matches){var fr=feed.getBoundingClientRect();if(fr.bottom+10>top)top=fr.bottom+10;}
+  var avail=window.innerHeight-top-14;   // vertical room for the card between the header line and the screen bottom
+  var hist=el.querySelector(".sec-hist"),viol=el.querySelector(".sec-viol");
+  if(hist&&card.getBoundingClientRect().height>avail)hist.open=false;   // collapse history if too tall
+  if(viol&&card.getBoundingClientRect().height>avail)viol.open=false;}  // still too tall -> collapse violations too
 
 // ── popups (lazy detail) ──────────────────────────────────────────────────────
 function popupShell(d){
   var r=ratingOf(d),h='<div class="pp-name">'+esc(d.n)+'</div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
   h+='<span class="favbtn" role="button" tabindex="0" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="display:inline-block;margin:3px 0 3px 7px;font-size:11px;font-weight:600;padding:1px 9px;border-radius:999px;border:1px solid #f5b301;background:'+(isFav(d.id)?"#fbe7b3":"#fff")+';color:'+(isFav(d.id)?"#7a5c00":"#b8860b")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</span>';
-  h+='<div class="pp-addr">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+(d.z?" "+esc(d.z):"")+'</div>';
-  h+='<div class="pp-meta">'+COUNTY[d.co]+' · '+(CU_LABEL[d.cu]||"Other")+'</div>';
   if(d.co==="k"&&d.g!=null) h+='<div class="pp-meta">Grade <b>'+d.g+'</b> ('+LABEL[d.g]+')'+(d.rs?" · "+esc(d.rs):"")+'</div>';
   if(d.s!=null) h+='<div class="pp-meta">'+(d.co==="k"?"Inspection score":"Violation points")+': <b>'+d.s+'</b> <span style="color:#999">(lower is better)</span></div>';
   if(d.ra!=null) h+='<div class="pp-meta">Avg rating, last 5 inspections: <b>'+d.ra.toFixed(1)+'</b> / 4</div>';
   if(d.wp!=null&&d.wp>(d.s||0)) h+='<div class="pp-meta">Worst inspection on record: <b>'+d.wp+'</b> pts</div>';
-  var ln=[]; if(d.d)ln.push("inspected "+fmtDate(d.d)); if(d.fd)ln.push("on record since "+String(d.fd).slice(0,4));
-  if(ln.length) h+='<div class="pp-meta" style="color:#666">'+ln.join(" · ")+'</div>';
   h+='<div class="pp-detail"><div class="loading">Loading inspection detail…</div></div>';
   return h;
 }
+// drop the food-code citation paragraph(s) — the dry "(WAC 246-215-…) <code text>" block — from a
+// narrative, keeping the inspector's verbatim observation above it and any corrective note below.
+function cleanNote(t){if(!t)return t;
+  var paras=String(t).split(/\n\s*\n/),kept=paras.filter(function(p){return !/^\s*\(\s*WAC\b/i.test(p);});
+  return (kept.length?kept:paras).join("\n\n").replace(/[ \t]+\n/g,"\n").trim();}
 function violHtml(vs){var s="";(vs||[]).forEach(function(x){
   var tag=x.type?'<span class="vt" style="background:'+(x.type==="RED"?"#e5484d":"#3b82f6")+'">'+esc(x.type)+(x.points!=null?" "+x.points:"")+'</span>':"";
   var head=tag+esc(x.label||"");
   // a narrative (Snohomish) collapses behind a per-violation expander so cards stay short; King items (no note) are plain rows
-  if(x.note)s+='<details class="viold"><summary>'+head+'</summary><div class="note">'+esc(x.note)+'</div></details>';
+  var note=cleanNote(x.note);
+  if(note)s+='<details class="viold"><summary>'+head+'</summary><div class="note">'+esc(note)+'</div></details>';
   else s+='<div class="viol"><div class="vh">'+head+'</div></div>';});return s;}
 function detailHtml(j){
   var h="",v=j.violations||[];
-  if(v.length)h+='<div class="pp-sec"><h4>Most recent violations</h4>'+violHtml(v.slice(0,8))+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div>';
-  else h+='<div class="pp-sec"><h4>Most recent violations</h4><div style="font-size:11.5px;color:#2a8a4a">No violations recorded ✓</div></div>';
+  // both sections are collapsible; fitPopup() collapses them as needed when the card is taller than the screen
+  if(v.length)h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody">'+violHtml(v.slice(0,8))+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div></details>';
+  else h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody"><div style="font-size:11.5px;color:#2a8a4a">No violations recorded ✓</div></div></details>';
   var hist=j.history||[];
-  if(hist.length>1){h+='<div class="pp-sec"><h4>Inspection history <span class="hsub">tap a date for details</span></h4>';
+  if(hist.length>1){h+='<details class="pp-sec ppsec sec-hist" open><summary>Inspection history <span class="hsub">tap a date for details</span></summary><div class="ppbody">';
     hist.slice(0,16).forEach(function(x){
       var left=fmtDate(x.date)+(x.label?' · '+esc(x.label):""),right=(x.score!=null?x.score+" pts":""),vs=x.v||[];
       if(vs.length)h+='<details class="histd"><summary><span class="hd">'+left+'</span><span class="hr">'+right+'</span></summary><div class="histv">'+violHtml(vs)+'</div></details>';
       else h+='<div class="hist"><span>'+left+'</span><span>'+right+'</span></div>';
     });
-    h+='</div>';}
+    h+='</div></details>';}
   if(j.report_url){var kcSearch=/kingcounty\.gov/.test(j.report_url);h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">'+(kcSearch?'Search King County ratings →':'Official report →')+'</a>';}
   return h;
 }
@@ -900,7 +991,7 @@ function openLocPopup(loc,focusD,mode){
   function showList(){pop.setContent(locListHtml(vm));setTimeout(function(){var root=pop.getElement();if(!root)return;
     root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});ensurePopupTop(pop);},0);}
   function showDetail(d){track("open",d.co);pop.setContent((vm.length>1?'<div class="loc-back" style="margin-bottom:6px;font-size:11.5px;color:#0969da;cursor:pointer">&larr; '+vm.length+' at this address</div>':'')+popupShell(d));
-    setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d,function(){ensurePopupTop(pop);});var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};ensurePopupTop(pop);},0);}
+    setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d,function(){fitPopup(pop);ensurePopupTop(pop);});var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};ensurePopupTop(pop);},0);}
   if(vm.length===1)showDetail(vm[0]);
   else if(focusD&&vm.indexOf(focusD)>=0)showDetail(focusD);
   else showList();
@@ -940,6 +1031,8 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
     if(ALL.length)map.fitBounds([[Math.min.apply(0,la),Math.min.apply(0,lo)],[Math.max.apply(0,la),Math.max.apply(0,lo)]],{padding:[20,20]});}
   applyUrlIntent();
   track("app",standalone()?"installed":"browser");
+  // capture where this visit came from (RUM beacon doesn't expose it to us) — host only, no full URL
+  try{var rf=document.referrer;if(rf){var rh=new URL(rf).hostname||rf;if(rh&&rh!==location.hostname)track("ref",rh);}else track("ref","(direct)");}catch(e){}
 });
 var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();},180);};
 // when focus leaves the search field and it has text, show an in-field clear button (left of the text);
@@ -1477,3 +1570,133 @@ const ABOUT_HTML = String.raw`<!doctype html>
   <p><strong>Inspection data:</strong> Public Health &mdash; Seattle &amp; King County, and the Snohomish County Health Department.</p>
   <p><strong>Map tiles:</strong> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, and &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> (neighborhood-trends map). Demographic context on the trends map is from the U.S. Census Bureau&rsquo;s American Community Survey.</p>
 </div><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
+
+// ============================ /dashboard — token-gated analytics ============================
+const DASH_HTML = String.raw`<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>SnoKing — Dashboard</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--line:#283039;--accent:#58a6ff}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{font-size:16px;margin:0;flex:1}
+  header a{color:var(--muted);text-decoration:none;font-size:12px}
+  select,button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer}
+  main{max-width:880px;margin:0 auto;padding:16px 18px 60px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:8px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .tile .n{font-size:24px;font-weight:700;letter-spacing:-.02em}
+  .tile .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-top:14px}
+  section h2{font-size:12px;margin:0 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  @media(max-width:640px){.cols{grid-template-columns:1fr}}
+  .row{display:flex;align-items:center;gap:9px;margin:5px 0;font-size:12.5px}
+  .row .lbl{width:118px;flex:none;color:#c9d2dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .bar{flex:1;height:15px;background:#0d1117;border-radius:4px;overflow:hidden}
+  .row .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .row .val{width:54px;flex:none;text-align:right;color:#c9d2dc;font-variant-numeric:tabular-nums}
+  .spark{display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:4px}
+  .spark .b{flex:1;min-width:2px;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
+  .spark .b:hover{opacity:1}
+  .muted{color:var(--muted);font-size:12px}
+  #gate{max-width:360px;margin:60px auto;text-align:center}
+  #gate input{width:100%;margin:12px 0;padding:9px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:14px}
+</style></head><body>
+<header>
+  <h1>SnoKing Analytics</h1>
+  <a href="/">← map</a>
+  <select id="days"><option value="1">Today</option><option value="2">2 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="90">90 days</option></select>
+  <button id="refresh">↻</button>
+  <button id="logout" title="Forget token">⎋</button>
+</header>
+<div id="gate" hidden>
+  <h2>Enter dashboard token</h2>
+  <input id="tok" type="password" placeholder="INGEST_TOKEN" autocomplete="off">
+  <button id="save">Open dashboard</button>
+  <p class="muted" id="gerr"></p>
+</div>
+<main id="app" hidden>
+  <div class="tiles" id="tiles"></div>
+  <section><h2>Sessions &amp; opens per day</h2><div id="daily"></div></section>
+  <section><h2>Top referrers</h2><div id="referrers"></div></section>
+  <div class="cols">
+    <section><h2>Shade-by views</h2><div id="shade"></div></section>
+    <section><h2>Cuisine filters</h2><div id="cuisine"></div></section>
+  </div>
+  <div class="cols">
+    <section><h2>Opens by county</h2><div id="county"></div></section>
+    <section><h2>Event types</h2><div id="byType"></div></section>
+  </div>
+  <section><h2>Last 48h &mdash; sessions per hour (local)</h2><div class="spark" id="hourly"></div></section>
+  <p class="muted" id="foot"></p>
+</main>
+<script>
+(function(){
+  var KEY="snoking_dash_tok";
+  var gate=document.getElementById("gate"),app=document.getElementById("app");
+  function tok(){return localStorage.getItem(KEY)||"";}
+  function showGate(msg){gate.hidden=false;app.hidden=true;document.getElementById("gerr").textContent=msg||"";}
+  function n(x){return parseInt(x,10)||0;}
+  function fmt(x){return n(x).toLocaleString();}
+  function clab(k){return k==="k"?"King":k==="s"?"Snohomish":(k||"(none)");}
+  function barList(elId,rows,labelFn){
+    var el=document.getElementById(elId);
+    if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
+    var max=0;rows.forEach(function(r){if(n(r.v)>max)max=n(r.v);});max=max||1;
+    var h="";rows.forEach(function(r){var v=n(r.v),pct=Math.round(v/max*100);
+      h+='<div class="row"><span class="lbl">'+esc(labelFn?labelFn(r.k):(r.k||"(none)"))+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(v)+'</span></div>';});
+    el.innerHTML=h;
+  }
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+  function renderDaily(rows){
+    var el=document.getElementById("daily");
+    if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
+    var max=0;rows.forEach(function(r){if(n(r.sessions)>max)max=n(r.sessions);});max=max||1;
+    var h="";rows.forEach(function(r){var s=n(r.sessions),pct=Math.round(s/max*100),d=String(r.k).slice(5).replace("-","/");
+      h+='<div class="row"><span class="lbl">'+d+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(s)+'</span></div>';});
+    el.innerHTML=h;
+  }
+  function renderHourly(rows){
+    var el=document.getElementById("hourly");
+    if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
+    var max=0;rows.forEach(function(r){if(n(r.sessions)>max)max=n(r.sessions);});max=max||1;
+    var h="";rows.forEach(function(r){var s=n(r.sessions),ht=Math.max(2,Math.round(s/max*100)),dt=new Date(r.k.replace(" ","T")+"Z");
+      var lab=dt.toLocaleString([], {month:"numeric",day:"numeric",hour:"numeric"});
+      h+='<span class="b" style="height:'+ht+'%" title="'+lab+": "+s+' sessions"></span>';});
+    el.innerHTML=h;
+  }
+  function tiles(d){
+    var sess=0,opens=0,events=0,inst=0;
+    (d.daily||[]).forEach(function(r){sess+=n(r.sessions);opens+=n(r.opens);events+=n(r.events);});
+    (d.install||[]).forEach(function(r){if(r.k==="installed")inst+=n(r.v);});
+    var ops=sess?(opens/sess).toFixed(1):"0";
+    var t=[["Sessions",fmt(sess)],["Card opens",fmt(opens)],["Opens / session",ops],["PWA installs",fmt(inst)],["Total events",fmt(events)]];
+    var h="";t.forEach(function(x){h+='<div class="tile"><div class="n">'+x[1]+'</div><div class="l">'+x[0]+'</div></div>';});
+    document.getElementById("tiles").innerHTML=h;
+  }
+  function load(){
+    var days=document.getElementById("days").value;
+    fetch("/dash/data?days="+days,{headers:{Authorization:"Bearer "+tok()}}).then(function(r){
+      if(r.status===401){localStorage.removeItem(KEY);showGate("Invalid token.");throw new Error("401");}
+      return r.json();
+    }).then(function(d){
+      gate.hidden=true;app.hidden=false;
+      tiles(d);renderDaily(d.daily);renderHourly(d.hourly);
+      barList("referrers",d.referrers);barList("shade",d.shade);barList("cuisine",d.cuisine);
+      barList("county",d.county,clab);barList("byType",d.byType);
+      document.getElementById("foot").textContent="Counts are sampling-estimated. Updated "+new Date().toLocaleString();
+    }).catch(function(){});
+  }
+  document.getElementById("save").onclick=function(){var v=document.getElementById("tok").value.trim();if(!v)return;localStorage.setItem(KEY,v);load();};
+  document.getElementById("tok").addEventListener("keydown",function(e){if(e.key==="Enter")document.getElementById("save").click();});
+  document.getElementById("refresh").onclick=load;
+  document.getElementById("days").onchange=load;
+  document.getElementById("logout").onclick=function(){localStorage.removeItem(KEY);showGate("");};
+  if(tok())load();else showGate("");
+})();
+</script>
+</body></html>`;
