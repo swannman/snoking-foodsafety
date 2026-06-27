@@ -833,7 +833,7 @@ function wirePopup(root,d,onLoaded){
   var box=root.querySelector(".pp-detail");
   if(box&&!box.dataset.loaded){box.dataset.loaded="1";
     fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);
-      box.querySelectorAll("details.histd").forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)track("hist");});});
+      var hds=box.querySelectorAll("details.histd");hds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open){track("hist");hds.forEach(function(o){if(o!==dt)o.open=false;});}});});
       // violation expanders behave like an accordion: opening one closes the others
       var vds=box.querySelectorAll("details.viold");vds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)vds.forEach(function(o){if(o!==dt)o.open=false;});});});
       if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
