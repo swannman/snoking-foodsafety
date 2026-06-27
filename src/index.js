@@ -624,10 +624,11 @@ if(window.matchMedia("(max-width:720px)").matches) document.getElementById("feed
 var map=L.map("map",{preferCanvas:true,attributionControl:false}).setView([47.7,-122.1],10);   // credits live on /about
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
 var canvas=L.canvas({padding:.5});
-// enlarge the tap target for the small canvas dots — by default only a pixel-perfect hit on the
-// 7px circle registers (the big emoji markers don't have this problem), so a near-miss tap feels
-// like the dot "isn't clickable". This pads the hit radius to ~tap size without enlarging the dot.
-L.CircleMarker.prototype._clickTolerance=function(){return (this.options.stroke?this.options.weight/2:0)+11;};
+// enlarge the hit target for the small canvas dots so a near-miss still registers. On TOUCH we pad
+// generously (fat fingers); with a MOUSE we keep it tight, because a fat pad makes a neighbouring
+// dot's hit region overlap the one you're aiming at (in dense clusters the wrong dot would fire).
+var DOTPAD=window.matchMedia&&window.matchMedia("(pointer: coarse)").matches?11:2;
+L.CircleMarker.prototype._clickTolerance=function(){return (this.options.stroke?this.options.weight/2:0)+DOTPAD;};
 var layer=L.layerGroup().addTo(map);
 var emojiLayer=L.layerGroup(), emojiMode=true, EMOJI_ZOOM=15, lastVis=[], popupOpen=false;
 
