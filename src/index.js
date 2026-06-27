@@ -832,7 +832,11 @@ function wirePopup(root,d,onLoaded){
   if(!root)return;
   var box=root.querySelector(".pp-detail");
   if(box&&!box.dataset.loaded){box.dataset.loaded="1";
-    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);box.querySelectorAll("details.histd").forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)track("hist");});});if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
+    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);
+      box.querySelectorAll("details.histd").forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)track("hist");});});
+      // violation expanders behave like an accordion: opening one closes the others
+      var vds=box.querySelectorAll("details.viold");vds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)vds.forEach(function(o){if(o!==dt)o.open=false;});});});
+      if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
   else if(onLoaded)onLoaded();
   var fb=root.querySelector(".favbtn");
   if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#fbe7b3":"#fff";fb.style.color=on?"#7a5c00":"#b8860b";};
