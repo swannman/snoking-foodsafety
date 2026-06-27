@@ -1182,6 +1182,8 @@ function checkForUpdate(){
 document.addEventListener("visibilitychange",checkForUpdate);
 // save the view whenever we leave the page (navigating to /about, /stats, etc.) so "back to map" restores it
 window.addEventListener("pagehide",saveView);
+// actual PWA install moment (Android/desktop fire this; iOS "Add to Home Screen" does not)
+window.addEventListener("appinstalled",function(){track("install");});
 // hide the bell entirely on browsers without web-push support; otherwise wire enable/disable
 var bellEl=document.getElementById("bell");
 if(!pushSupported()){if(bellEl)bellEl.style.display="none";}
@@ -1697,13 +1699,13 @@ const DASH_HTML = String.raw`<!doctype html>
   function fmt(x){return n(x).toLocaleString();}
   function clab(k){return k==="k"?"King":k==="s"?"Snohomish":(k||"(none)");}
   var SHADE_LABELS={rating:"Rating — latest inspection",routine:"Last routine rating (ignores reinspections)",avg:"Average of the last 5 inspections",worstpts:"Worst inspection on record (violation points)",poorfrac:"% of routines that came back Okay-or-worse (chronic)",resid:"vs cuisine norm — over/under-performers vs same cuisine",changed:"Recently changed — new + rating up/down",age:"Years in operation",cuisine:"Shaded by cuisine type"};
-  var EVENT_LABELS={open:"Opened a restaurant card",app:"App load (session start)",hist:"Expanded an inspection-history date",shade:"Changed the shade-by metric",search:"Used the name/address search",filter:"Changed the cuisine filter",fav:"Saved/unsaved a favorite",alerts:"Enabled/disabled push alerts",about:"Opened the About page",stats:"Opened the per-capita / stats map",bloopers:"Opened the bloopers reel",locate:"Tapped Zoom-to-my-location"};
+  var EVENT_LABELS={open:"Opened a restaurant card",app:"App load (session start)",hist:"Expanded an inspection-history date",shade:"Changed the shade-by metric",search:"Used the name/address search",filter:"Changed the cuisine filter",fav:"Saved/unsaved a favorite",alerts:"Enabled/disabled push alerts",about:"Opened the About page",stats:"Opened the per-capita / stats map",bloopers:"Opened the bloopers reel",locate:"Tapped Zoom-to-my-location",install:"Installed the PWA (Add to Home Screen)",nav:"Opened Stats / Bloopers / About (legacy event)"};
   function barList(elId,rows,labelFn,titleMap){
     var el=document.getElementById(elId);
     if(!rows||!rows.length){el.innerHTML='<p class="muted">no data yet</p>';return;}
     var max=0;rows.forEach(function(r){if(n(r.v)>max)max=n(r.v);});max=max||1;
     var h="";rows.forEach(function(r){var v=n(r.v),pct=Math.round(v/max*100),lab=labelFn?labelFn(r.k):(r.k||"(none)");
-      var ttl=titleMap===true?lab:(titleMap?(titleMap[r.k]||""):"");
+      var ttl=titleMap===true?lab:(titleMap?(titleMap[r.k]||r.k):"");   // fall back to the raw key so every labeled row has a tooltip
       h+='<div class="row"'+(ttl?' data-tip="'+esc(ttl)+'"':'')+'><span class="lbl">'+esc(lab)+'</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="val">'+fmt(v)+'</span></div>';});
     el.innerHTML=h;
   }
