@@ -123,7 +123,7 @@ export default {
       const since = `now() - INTERVAL '${days}' DAY`;
       const Q = {
         daily: `SELECT toDate(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens, sum(_sample_interval) AS events FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY k`,
-        byType: `SELECT blob1 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        byType: `SELECT blob1 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1 != 'ref' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         referrers: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='ref' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
         shade: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='shade' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         cuisine: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='filter' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
@@ -1043,7 +1043,19 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   // capture where this visit came from (RUM beacon doesn't expose it to us) — host only, no full URL
   try{var rf=document.referrer;if(rf){var rh=new URL(rf).hostname||rf;if(rh&&rh!==location.hostname)track("ref",rh);}else track("ref","(direct)");}catch(e){}
 });
-var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();},180);};
+var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();fitSearch();},180);};
+// a search filters dots in place but the matches may be off-screen (and the list is viewport-only),
+// so a place looks "missing". When a specific search's matches are all off-screen, pan/zoom to them.
+function fitSearch(){
+  if(!query)return;
+  var ms=ALL.filter(passes).filter(function(d){return d.la!=null&&d.lo!=null;});
+  if(!ms.length||ms.length>60)return;                                    // nothing, or too broad to be a real lookup
+  var b=map.getBounds();
+  if(ms.some(function(d){return b.contains([d.la,d.lo]);}))return;        // a match is already visible — leave the map alone
+  if(ms.length===1){map.setView([ms[0].la,ms[0].lo],16);return;}
+  var la=ms.map(function(d){return d.la;}),lo=ms.map(function(d){return d.lo;});
+  map.fitBounds([[Math.min.apply(0,la),Math.min.apply(0,lo)],[Math.max.apply(0,la),Math.max.apply(0,lo)]],{padding:[40,40],maxZoom:16});
+}
 // when focus leaves the search field and it has text, show an in-field clear button (left of the text);
 // clicking it clears the field, re-renders, and re-focuses the field
 (function(){var q=document.getElementById("q"),qc=document.getElementById("qclear");
