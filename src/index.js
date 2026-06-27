@@ -485,7 +485,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Show my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>SnoKing Food Safety <a class="statslink" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Zoom to my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <div class="qwrap"><button type="button" id="qclear" aria-label="Clear search" title="Clear">×</button><input id="q" placeholder="Search name or address…" autocomplete="off"></div>
@@ -789,8 +789,16 @@ function focusId(id){for(var i=0;i<ALL.length;i++){if(ALL[i].id===id){var d=ALL[
 // (e.g. the inspection history) from extending off the top of the screen.
 function ensurePopupTop(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)return;
   var card=el.querySelector(".leaflet-popup-content-wrapper")||el,mr=map.getContainer().getBoundingClientRect(),cr=card.getBoundingClientRect();
-  var shift=(mr.top+14)-cr.top;   // px the card top sits above the desired line (viewport top + 14 margin)
-  if(shift>1)map.panBy([0,-shift],{animate:true});}   // pan content down to reveal the top
+  var top=mr.top+14;   // desired line for the card top: viewport top + 14px margin
+  // on phones the title/filters panel floats over the top of the map — drop the card below its bottom edge
+  var feed=document.getElementById("feed");
+  if(feed&&window.matchMedia&&window.matchMedia("(max-width:720px)").matches){var fr=feed.getBoundingClientRect();if(fr.bottom+10>top)top=fr.bottom+10;}
+  var dy=top-cr.top; if(dy<1)dy=0;   // px to move the card DOWN so its top clears the line (never pans up)
+  // horizontal: bring the card fully on-screen, preferring the left edge so the card's start is visible
+  var ml=mr.left+14,mrr=mr.right-14,dx=0;
+  if(cr.left<ml)dx=ml-cr.left;             // off the left  -> slide content right
+  else if(cr.right>mrr)dx=-(cr.right-mrr); // off the right -> slide content left
+  if(Math.abs(dx)>1||dy>1)map.panBy([-dx,-dy],{animate:true});}   // panBy moves the view; negate to move content
 
 // ── popups (lazy detail) ──────────────────────────────────────────────────────
 function popupShell(d){
@@ -916,10 +924,12 @@ var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e
   q.addEventListener("focus",function(){qc.style.display="none";q.classList.remove("hasclear");});
   qc.addEventListener("click",function(){clearTimeout(qt);q.value="";query="";render();q.focus();});})();
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
-// "recently changed" sorts by recency, so its label reads newest/oldest; every other metric reads worst/best
-function sortLabel(){if(sortMode==="alpha")return "A–Z";if(colorMode==="changed")return sortMode==="worst"?"newest first":"oldest first";return sortMode==="worst"?"worst first":"best first";}
-function updateSortLabel(){var el=document.getElementById("sortdir");if(el)el.textContent=sortLabel();}
-document.getElementById("sortdir").onclick=function(){sortMode=sortMode==="alpha"?"best":(sortMode==="best"?"worst":"alpha");updateSortLabel();renderList();};
+// time-based metrics ("recently changed", "years in operation") read newest/oldest; every other metric reads worst/best
+function sortLabel(){if(sortMode==="alpha")return "A–Z";if(colorMode==="changed")return sortMode==="worst"?"newest first":"oldest first";if(colorMode==="age")return sortMode==="worst"?"oldest first":"newest first";return sortMode==="worst"?"worst first":"best first";}
+function updateSortLabel(){var el=document.getElementById("sortdir");if(!el)return;
+  if(colorMode==="cuisine"){sortMode="alpha";el.textContent="A–Z";el.style.cursor="default";el.style.textDecoration="none";el.title="";}   // cuisine is categorical — no best/worst ordering
+  else{el.textContent=sortLabel();el.style.cursor="pointer";el.style.textDecoration="underline dotted";el.title="Click to change sort";}}
+document.getElementById("sortdir").onclick=function(){if(colorMode==="cuisine")return;sortMode=sortMode==="alpha"?"best":(sortMode==="best"?"worst":"alpha");updateSortLabel();renderList();};
 // click the title bar to collapse/expand the filter+list panel (frees the map, esp. on mobile)
 document.getElementById("head").onclick=function(e){if(e.target.id==="q"||e.target.tagName==="INPUT"||e.target.closest(".statslink"))return;
   if(!window.matchMedia("(max-width:720px)").matches)return;   // collapse only on mobile
@@ -1319,7 +1329,7 @@ const BLOOPERS_HTML = String.raw`<!doctype html>
 </style></head><body>
 <header>
   <h1>😅 Inspection Bloopers</h1>
-  <p class="sub">Real lines from Snohomish County food-inspection reports. <a href="/">← back to the map</a></p>
+  <p class="sub">Real lines from food-inspection reports. <a href="/">← back to the map</a></p>
 </header>
 <div id="tools">
   <input id="q" placeholder="Search the bloopers…" autocomplete="off">
