@@ -785,8 +785,7 @@ function centerPopup(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)re
 
 // ── popups (lazy detail) ──────────────────────────────────────────────────────
 function popupShell(d){
-  var r=ratingOf(d),h='<img class="sv" src="/streetview?lat='+d.la+'&lon='+d.lo+'" onerror="this.style.display=\'none\'" data-lat="'+d.la+'" data-lon="'+d.lo+'" title="Click for 360° view">';
-  h+='<div class="pp-name">'+esc(d.n)+'</div>';
+  var r=ratingOf(d),h='<div class="pp-name">'+esc(d.n)+'</div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
   h+='<span class="favbtn" role="button" tabindex="0" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="display:inline-block;margin:3px 0 3px 7px;font-size:11px;font-weight:600;padding:1px 9px;border-radius:999px;border:1px solid #f5b301;background:'+(isFav(d.id)?"#fbe7b3":"#fff")+';color:'+(isFav(d.id)?"#7a5c00":"#b8860b")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</span>';
   h+='<div class="pp-addr">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+(d.z?" "+esc(d.z):"")+'</div>';
@@ -824,8 +823,6 @@ function wirePopup(root,d,onLoaded){
   if(box&&!box.dataset.loaded){box.dataset.loaded="1";
     fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);box.querySelectorAll("details.histd").forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)track("hist");});});if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
   else if(onLoaded)onLoaded();
-  var sv=root.querySelector(".sv");
-  if(sv)sv.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var f=document.createElement("iframe");f.src="/sv-embed?lat="+d.la+"&lon="+d.lo;f.style.cssText="width:100%;height:150px;border:0;border-radius:6px;display:block;margin-bottom:7px";sv.parentNode.replaceChild(f,sv);};
   var fb=root.querySelector(".favbtn");
   if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#fbe7b3":"#fff";fb.style.color=on?"#7a5c00":"#b8860b";};
 }
