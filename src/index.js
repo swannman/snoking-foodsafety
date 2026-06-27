@@ -778,10 +778,13 @@ function focusId(id){for(var i=0;i<ALL.length;i++){if(ALL[i].id===id){var d=ALL[
   if(window.matchMedia("(max-width:720px)").matches&&feed&&!feed.classList.contains("collapsed"))feed.classList.add("collapsed");
   openLocPopup(loc,d,"center");return;}}}
 // pan so the popup CARD is centered in the map viewport (the marker ends up below center)
-function centerPopup(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)return;
+// after a popup opens, make sure the TOP of the card is on-screen with a small margin above it —
+// scroll the map down just enough (leave it alone if the top is already visible). Keeps tall cards
+// (e.g. the inspection history) from extending off the top of the screen.
+function ensurePopupTop(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)return;
   var card=el.querySelector(".leaflet-popup-content-wrapper")||el,mr=map.getContainer().getBoundingClientRect(),cr=card.getBoundingClientRect();
-  var dx=(cr.left+cr.width/2)-(mr.left+mr.width/2),dy=(cr.top+cr.height/2)-(mr.top+mr.height/2);
-  if(Math.abs(dx)>2||Math.abs(dy)>2)map.panBy([dx,dy],{animate:true});}
+  var shift=(mr.top+14)-cr.top;   // px the card top sits above the desired line (viewport top + 14 margin)
+  if(shift>1)map.panBy([0,-shift],{animate:true});}   // pan content down to reveal the top
 
 // ── popups (lazy detail) ──────────────────────────────────────────────────────
 function popupShell(d){
@@ -844,15 +847,14 @@ function locListHtml(vm){
   return h+'</div>';
 }
 function openLocPopup(loc,focusD,mode){
-  // mode: "center" -> we manually center the card; legacy truthy -> no autopan; falsy -> Leaflet autopan
-  var ctr=mode==="center";
   var vm=loc.m.filter(passes);if(!vm.length)return;
   vm.sort(function(a,b){return reprWorseness(b)-reprWorseness(a)||a.n.localeCompare(b.n);});   // worst-on-active-metric first (matches the cluster's representative color)
-  var pop=L.popup({maxWidth:300,minWidth:280,autoPan:!mode}).setLatLng([loc.la,loc.lo]).openOn(map);
+  // we manage panning ourselves (ensurePopupTop) so the card top is always visible, incl. tall cards
+  var pop=L.popup({maxWidth:300,minWidth:280,autoPan:false}).setLatLng([loc.la,loc.lo]).openOn(map);
   function showList(){pop.setContent(locListHtml(vm));setTimeout(function(){var root=pop.getElement();if(!root)return;
-    root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});if(ctr)centerPopup(pop);},0);}
+    root.querySelectorAll(".loc-row").forEach(function(el){el.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showDetail(vm[+el.dataset.i]);};});ensurePopupTop(pop);},0);}
   function showDetail(d){track("open",d.co);pop.setContent((vm.length>1?'<div class="loc-back" style="margin-bottom:6px;font-size:11.5px;color:#0969da;cursor:pointer">&larr; '+vm.length+' at this address</div>':'')+popupShell(d));
-    setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d,ctr?function(){centerPopup(pop);}:null);var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};if(ctr)centerPopup(pop);},0);}
+    setTimeout(function(){var root=pop.getElement();if(!root)return;wirePopup(root,d,function(){ensurePopupTop(pop);});var b=root.querySelector(".loc-back");if(b)b.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();showList();};ensurePopupTop(pop);},0);}
   if(vm.length===1)showDetail(vm[0]);
   else if(focusD&&vm.indexOf(focusD)>=0)showDetail(focusD);
   else showList();
