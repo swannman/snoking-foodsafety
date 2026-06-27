@@ -507,7 +507,7 @@ const MAP_HTML = String.raw`<!doctype html>
         <div class="dual" id="rslider"></div>
       </div>
     </div>
-    <div id="listhead"><span id="count">…</span><span><span id="upd"></span> · in view · <span id="sortdir" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Click to change sort">A–Z</span></span></div>
+    <div id="listhead"><span id="count">…</span><span><span id="upd"></span> · <span id="sortdir" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Click to change sort">A–Z</span></span></div>
     <div id="list"></div>
   </div>
   <div id="map"></div>
