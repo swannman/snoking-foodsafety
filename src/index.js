@@ -450,9 +450,14 @@ const MAP_HTML = String.raw`<!doctype html>
   .pp-sec{margin-top:8px;border-top:1px solid #e3e3e3;padding-top:6px}
   .pp-sec h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#888}
   .viol{font-size:11.5px;margin-bottom:5px}
-  .viol .vh{font-weight:600;color:#222}
-  .viol .vt{display:inline-block;font-size:9.5px;font-weight:700;color:#fff;padding:1px 5px;border-radius:4px;margin-right:5px;vertical-align:1px}
-  .viol .note{color:#555;white-space:pre-wrap;font-size:11px;margin-top:1px;max-height:60px;overflow:auto}
+  .viol .vh,.viold>summary{font-weight:600;color:#222;font-size:11.5px}
+  .viol .vt,.viold .vt{display:inline-block;font-size:9.5px;font-weight:700;color:#fff;padding:1px 5px;border-radius:4px;margin-right:5px;vertical-align:1px}
+  .viol .note,.viold .note{color:#555;white-space:pre-wrap;font-size:11px;margin-top:2px;max-height:170px;overflow:auto}
+  .viold{margin-bottom:5px}
+  .viold>summary{list-style:none;cursor:pointer}
+  .viold>summary::-webkit-details-marker{display:none}
+  .viold>summary::before{content:"▸ ";color:#aaa;font-weight:400;font-size:9px}
+  .viold[open]>summary::before{content:"▾ "}
   .hist{font-size:11px;color:#444;display:flex;justify-content:space-between;border-top:1px dotted #ddd;padding:2px 0}
   .hsub{font-weight:400;color:#999;font-size:10px}
   .histd{font-size:11px}
@@ -804,7 +809,10 @@ function popupShell(d){
 }
 function violHtml(vs){var s="";(vs||[]).forEach(function(x){
   var tag=x.type?'<span class="vt" style="background:'+(x.type==="RED"?"#e5484d":"#3b82f6")+'">'+esc(x.type)+(x.points!=null?" "+x.points:"")+'</span>':"";
-  s+='<div class="viol"><div class="vh">'+tag+esc(x.label||"")+'</div>'+(x.note?'<div class="note">'+esc(x.note)+'</div>':"")+'</div>';});return s;}
+  var head=tag+esc(x.label||"");
+  // a narrative (Snohomish) collapses behind a per-violation expander so cards stay short; King items (no note) are plain rows
+  if(x.note)s+='<details class="viold"><summary>'+head+'</summary><div class="note">'+esc(x.note)+'</div></details>';
+  else s+='<div class="viol"><div class="vh">'+head+'</div></div>';});return s;}
 function detailHtml(j){
   var h="",v=j.violations||[];
   if(v.length)h+='<div class="pp-sec"><h4>Most recent violations</h4>'+violHtml(v.slice(0,8))+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div>';
