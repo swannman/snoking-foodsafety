@@ -1630,6 +1630,7 @@ const DASH_HTML = String.raw`<!doctype html>
   header h1{font-size:16px;margin:0;flex:1}
   header a{color:var(--muted);text-decoration:none;font-size:12px}
   select,button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer}
+  #refresh{padding:8px 16px;font-size:15px;font-weight:600;background:var(--accent);color:#0d1117;border-color:var(--accent)}
   main{max-width:880px;margin:0 auto;padding:16px 18px 60px}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:8px}
   .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
@@ -1670,8 +1671,7 @@ const DASH_HTML = String.raw`<!doctype html>
   <h1>SnoKing Analytics</h1>
   <a href="/">← map</a>
   <select id="days"><option value="1">Today</option><option value="2">2 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="90">90 days</option></select>
-  <button id="refresh">↻</button>
-  <button id="logout" title="Forget token">⎋</button>
+  <button id="refresh" title="Refresh">↻ Refresh</button>
 </header>
 <div id="gate" hidden>
   <h2>Enter dashboard token</h2>
@@ -1778,7 +1778,6 @@ const DASH_HTML = String.raw`<!doctype html>
   document.getElementById("tok").addEventListener("keydown",function(e){if(e.key==="Enter")document.getElementById("save").click();});
   document.getElementById("refresh").onclick=load;
   document.getElementById("days").onchange=load;
-  document.getElementById("logout").onclick=function(){localStorage.removeItem(KEY);showGate("");};
   if(tok())load();else showGate("");
 })();
 </script>
