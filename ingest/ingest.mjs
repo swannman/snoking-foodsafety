@@ -18,10 +18,15 @@ import { dirname, join } from "node:path";
 import { cuisineOf } from "./cuisine.mjs";
 import { blooperTag, blooperText, redactName } from "./bloopers.mjs";
 import { loadTagger } from "./regions.mjs";
+import { buildKingRubric, ratingKingStyle, tagViols } from "./king-rubric.mjs";
 let tagTract = () => null;
 try { tagTract = loadTagger(); } catch (e) { console.log("tract tagger disabled:", e.message); }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// King critical-violation rubric (item -> major/minor + points, plus grade cutoffs). Rebuilt from
+// King each full run; Snohomish is scored against it so the two counties grade the same way.
+const KMAP_PATH = join(HERE, "king_violation_map.json");
+const loadKingRubric = () => { try { return JSON.parse(readFileSync(KMAP_PATH, "utf8")); } catch { return null; } };
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const DRY = has("--dry"), KING_ONLY = has("--king-only"), SNO_ONLY = has("--sno-only"), NO_GEOCODE = has("--no-geocode");
@@ -134,6 +139,7 @@ async function harvestKing() {
 }
 
 async function king() {
+  const rubric = loadKingRubric();   // prior run's rubric — scores King's UNGRADED establishments King-style (rebuilt at the end)
   const { exact, byNum } = await harvestKing();
   console.log(`  king: harvested ${exact.size} prior cuisine/age records from live API`);
   // Permit status is administratively noisy — an open restaurant can read "Expired" while its
@@ -179,7 +185,9 @@ async function king() {
     // derive a rating from points (like Snohomish) so nothing shows "Unrated".
     const grade = KC_GRADE[String(b.Business_Grade || "").trim()] || null;
     const ravg = avgRating(mh);
-    const rating = grade != null ? grade : (pointRating(latestScore) ?? (ravg != null ? Math.round(ravg) : null));
+    // ungraded establishments (schools/institutions): score them King-style too, so the whole map grades alike
+    const ksRating = grade == null ? ratingKingStyle(history, rubric) : null;
+    const rating = grade != null ? grade : (ksRating ?? pointRating(latestScore) ?? (ravg != null ? Math.round(ravg) : null));
     if (rating == null) continue;   // registered but never inspected & ungraded — no rating data, skip (old feed never listed these)
     const latestViol = latest ? kviol(latest.Inspection_Serial_Num) : [];
     // preserve prior cuisine + deeper age: match harvested live data by name+address, else street number
@@ -195,8 +203,8 @@ async function king() {
       cuisine,
       rating, grade,
       score: latestScore, result: latest ? (latest.Inspection_Result || null) : null,
-      // graded King ratings are a rolling average, not one inspection -> "grade"; ungraded ones track the latest inspection
-      rating_svc: grade != null ? "grade" : classifySvc(latest ? latest.Inspection_Type : null),
+      // King-style ratings (graded, or ungraded scored against the rubric) are a rolling average -> "grade"
+      rating_svc: (grade != null || ksRating != null) ? "grade" : classifySvc(latest ? latest.Inspection_Type : null),
       inspect_date: latest ? dstr(latest.Inspection_Date) : null, first_date,
       report_url: "https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings",
       rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
@@ -209,6 +217,8 @@ async function king() {
   await fixGeocodes(out);
   const merged = mergePrograms(out);
   console.log(`  king: ${merged.length} establishments after merging duplicate program permits`);
+  // rebuild the King rubric (item major/minor + points, grade cutoffs) so the Snohomish pass scores like King
+  try { const rb = buildKingRubric(merged); writeFileSync(KMAP_PATH, JSON.stringify(rb)); console.log(`  king rubric: ${rb.nItems} items, cutoffs ${rb.cutoffs.join("/")}`); } catch (e) { console.log("  king rubric build failed:", e.message); }
   return merged;
 }
 
@@ -326,10 +336,13 @@ async function snohomish() {
   const progCache = existsSync(PROG_PATH) ? JSON.parse(readFileSync(PROG_PATH, "utf8")) : {};
   const recs = [], bloopers = [];
   const HIST_CUT = new Date(Date.now() - 1096 * 86400000).toISOString().slice(0, 10);   // ~3 years ago
-  const svViol = (ins) => ((ins && ins.violations) || []).map((v) => ({
+  const rubric = loadKingRubric();   // King's item major/minor + points + grade cutoffs (built by king())
+  // tag each Snohomish violation with King's major/minor type + points (by WA item number), so they
+  // display like King's and the data is self-describing
+  const svViol = (ins) => tagViols(((ins && ins.violations) || []).map((v) => ({
     label: v.violation_description || v.violation_text || ("Violation " + (v.violation_code || "")),
     points: null, type: null,
-    note: (v.v_memo || "").replace(/\r\n?/g, "\n").trim().slice(0, 700) || null }));
+    note: (v.v_memo || "").replace(/\r\n?/g, "\n").trim().slice(0, 700) || null })), (rubric && rubric.map) || {});
   let done = 0, fails = 0;
   for (const f of list) {
     const { city, zip } = parseCityStateZip(f.CityStateZip);
@@ -360,7 +373,9 @@ async function snohomish() {
     if (++done % 50 === 0) process.stdout.write(`  sno crawl: ${done}/${list.length} (${fails} errors, ${bloopers.length} bloopers)\r`);
     const violations = svViol(latest);
     const ravg = avgRating(mh);
-    const rating = snoRating(score) ?? (ravg != null ? Math.round(ravg) : null);
+    // headline rating now mirrors King: avg CRITICAL points over last 4 routines, King-derived cutoffs.
+    // Falls back to the old total-points rating if the rubric or routine history is unavailable.
+    const rating = ratingKingStyle(history, rubric) ?? snoRating(score) ?? (ravg != null ? Math.round(ravg) : null);
     recs.push({
       id: "sno:" + f.FacilityId, county: "snohomish", name: (f.FacilityName || "").trim(),
       address: (f.Address || "").replace(/\s+/g, " ").trim(), city, zip, lat: null, lon: null,

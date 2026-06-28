@@ -1577,16 +1577,8 @@ const ABOUT_HTML = String.raw`<!doctype html>
   <h2>How the rating works</h2>
   <p>Every establishment is placed on the same four labels &mdash; Excellent, Good, Okay, Needs to Improve (lower is better) &mdash; but the two counties produce them differently.</p>
   <p><strong>King County</strong> publishes its own rating, and this map uses it as-is. King calculates it from the average of a restaurant's <em>critical</em> (red) violation points across its last four routine inspections, with the cutoffs between categories set relative to how all King County restaurants score, plus rules for recent closures and repeat re-inspections. King's full methodology is published <a href="https://kingcounty.gov/en/dept/dph/health-safety/food-safety/inspection-rating-system/rating-system" target="_blank" rel="noopener">here</a>.</p>
-  <p><strong>Snohomish County</strong> doesn't publish a summary rating, so this map derives one from the violation points on the most recent inspection, where more points mean more or more serious violations:</p>
-  <table>
-    <tr><th>Violation points</th><th>Rating</th></tr>
-    <tr><td>0</td><td>Excellent</td></tr>
-    <tr><td>1&ndash;15</td><td>Good</td></tr>
-    <tr><td>16&ndash;35</td><td>Okay</td></tr>
-    <tr><td>36 or more</td><td>Needs to Improve</td></tr>
-  </table>
-  <p>The same thresholds are used for the small number of King County establishments that are inspected but not graded, such as some schools and institutional kitchens.</p>
-  <p>Because King's rating averages several inspections and counts only critical violations, while the Snohomish-derived rating is the full score of a single inspection, the two aren't calculated the same way. They share the same labels so both counties can sit on one map, but a King "Good" and a Snohomish "Good" come from different formulas.</p>
+  <p><strong>Snohomish County</strong> doesn't publish a summary rating, so this map derives one &mdash; but to make it directly comparable to King's, it mirrors King's method exactly. Both counties inspect against the same Washington State Retail Food Code, which classifies every violation as <em>critical</em> (major) or non-critical (minor) with a point value. So for each Snohomish establishment we count only the critical violation points, average them over the last four routine inspections, and apply the same category cutoffs King's own grades fall on. The grade you see is computed the same way on both sides of the county line.</p>
+  <p>Because the grade is an average of recent critical-violation points, "Excellent" means consistently very low critical points &mdash; not necessarily a spotless single visit.</p>
 
   <h2>Ways to explore it</h2>
   <p>You can filter the map by cuisine and shade it by different measures, including:</p>
