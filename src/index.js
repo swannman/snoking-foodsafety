@@ -130,7 +130,8 @@ export default {
         cuisine: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='filter' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
         county: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         openCuisine: `SELECT blob3 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob3!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 20`,
-        openRest: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
+        openRestK: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob2='k' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 30`,
+        openRestS: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND blob2='s' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 30`,
         savedRest: `SELECT blob4 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='fav' AND blob2='add' AND blob4!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
         install: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='app' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         hourly: `SELECT toStartOfHour(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens FROM snoking_events WHERE timestamp > now() - INTERVAL '2' DAY GROUP BY k ORDER BY k`
@@ -141,13 +142,19 @@ export default {
       // the analytics events only carry the restaurant NAME, so look up rating + city from D1
       // (by name) for the most-checked / most-saved panels — lets us see if rating biases checks.
       try {
-        const names = [...new Set([...(out.openRest || []), ...(out.savedRest || [])].map((r) => r.k).filter(Boolean))];
+        const names = [...new Set([...(out.openRestK || []), ...(out.openRestS || []), ...(out.savedRest || [])].map((r) => r.k).filter(Boolean))];
         if (names.length) {
           const ph = names.map(() => "?").join(",");
-          const { results } = await env.DB.prepare(`SELECT id, name, rating, city FROM establishments WHERE name IN (${ph})`).bind(...names).all();
-          const m = {}; for (const row of results || []) { if (m[row.name] == null) m[row.name] = { id: row.id, rating: row.rating, city: row.city }; }
-          const attach = (rows) => (rows || []).map((r) => ({ ...r, id: (m[r.k] || {}).id ?? null, rating: (m[r.k] || {}).rating ?? null, city: (m[r.k] || {}).city ?? null }));
-          out.openRest = attach(out.openRest); out.savedRest = attach(out.savedRest);
+          const { results } = await env.DB.prepare(`SELECT id, name, rating, city, county FROM establishments WHERE name IN (${ph})`).bind(...names).all();
+          // disambiguate same-named places by county (the open event carries it); savedRest has no county -> name-only
+          const byNC = {}, byN = {};
+          for (const row of results || []) {
+            const v = { id: row.id, rating: row.rating, city: row.city };
+            const kc = row.name + "|" + row.county; if (byNC[kc] == null) byNC[kc] = v;
+            if (byN[row.name] == null) byN[row.name] = v;
+          }
+          const attach = (rows, county) => (rows || []).map((r) => { const m = (county && byNC[r.k + "|" + county]) || byN[r.k] || {}; return { ...r, id: m.id ?? null, rating: m.rating ?? null, city: m.city ?? null }; });
+          out.openRestK = attach(out.openRestK, "king"); out.openRestS = attach(out.openRestS, "snohomish"); out.savedRest = attach(out.savedRest, null);
         }
       } catch {}
       return Response.json(out, { headers: { "Cache-Control": "no-store" } });
@@ -1631,7 +1638,8 @@ const DASH_HTML = String.raw`<!doctype html>
   header a{color:var(--muted);text-decoration:none;font-size:12px}
   select,button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer}
   #refresh{padding:8px 16px;font-size:15px;font-weight:600;background:var(--accent);color:#0d1117;border-color:var(--accent)}
-  main{max-width:880px;margin:0 auto;padding:16px 18px 60px}
+  main{max-width:1400px;margin:0 auto;padding:16px 24px 60px}
+  #openRestK .lbl,#openRestS .lbl{width:auto;flex:1;max-width:62%}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:8px}
   .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .tile .n{font-size:24px;font-weight:700;letter-spacing:-.02em}
@@ -1671,7 +1679,7 @@ const DASH_HTML = String.raw`<!doctype html>
   <h1>SnoKing Analytics</h1>
   <a href="/">← map</a>
   <select id="days"><option value="1">Today</option><option value="2">2 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="90">90 days</option></select>
-  <button id="refresh" title="Refresh">↻ Refresh</button>
+  <button id="refresh" title="Refresh">Refresh</button>
 </header>
 <div id="gate" hidden>
   <h2>Enter dashboard token</h2>
@@ -1688,7 +1696,10 @@ const DASH_HTML = String.raw`<!doctype html>
     <section><h2>Shade-by views</h2><div id="shade"></div></section>
     <section><h2>Cuisine filters</h2><div id="cuisine"></div></section>
   </div>
-  <section class="wide"><h2>Most-checked restaurants</h2><div id="openRest"></div></section>
+  <div class="cols">
+    <section><h2>Most-checked &mdash; King County</h2><div id="openRestK"></div></section>
+    <section><h2>Most-checked &mdash; Snohomish County</h2><div id="openRestS"></div></section>
+  </div>
   <section class="wide"><h2>Most-saved restaurants</h2><div id="savedRest"></div></section>
   <div class="cols">
     <section><h2>Opens by cuisine</h2><div id="openCuisine"></div></section>
@@ -1770,7 +1781,7 @@ const DASH_HTML = String.raw`<!doctype html>
       tiles(d);renderDaily(d.daily);renderHourly(d.hourly);
       barList("referrers",d.referrers);barList("src",d.src);barList("shade",d.shade,null,SHADE_LABELS);barList("cuisine",d.cuisine);
       barList("county",d.county,clab);barList("byType",d.byType,null,EVENT_LABELS);
-      ratedList("openRest",d.openRest);ratedList("savedRest",d.savedRest);barList("openCuisine",d.openCuisine);
+      ratedList("openRestK",d.openRestK);ratedList("openRestS",d.openRestS);ratedList("savedRest",d.savedRest);barList("openCuisine",d.openCuisine);
       document.getElementById("foot").textContent="Counts are sampling-estimated. Updated "+new Date().toLocaleString();
     }).catch(function(){});
   }
