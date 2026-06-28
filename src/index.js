@@ -123,8 +123,9 @@ export default {
       const since = `now() - INTERVAL '${days}' DAY`;
       const Q = {
         daily: `SELECT toDate(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens, sum(_sample_interval) AS events FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY k`,
-        byType: `SELECT blob1 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1 != 'ref' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
+        byType: `SELECT blob1 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1 NOT IN ('ref','src') AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         referrers: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='ref' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
+        src: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='src' AND blob2!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
         shade: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='shade' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         cuisine: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='filter' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
         county: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='open' AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
@@ -1053,6 +1054,13 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
   track("app",standalone()?"installed":"browser");
   // capture where this visit came from (RUM beacon doesn't expose it to us) — host only, no full URL
   try{var rf=document.referrer;if(rf){var rh=new URL(rf).hostname||rf;if(rh&&rh!==location.hostname)track("ref",rh);}else track("ref","(direct)");}catch(e){}
+  // capture a campaign tag from the URL: short ?ref=<tag>, or standard utm_source/campaign/content.
+  // lets you attribute a visit to a specific FB group / Reddit post / etc. (referrers can't — FB strips the path)
+  try{var qp0=new URLSearchParams(location.search),tag=qp0.get("ref");
+    if(!tag){var pp=[qp0.get("utm_source"),qp0.get("utm_campaign"),qp0.get("utm_content")].filter(Boolean);if(pp.length)tag=pp.join("/");}
+    if(tag){track("src",String(tag).slice(0,60));
+      ["ref","utm_source","utm_campaign","utm_medium","utm_content","utm_term"].forEach(function(k){qp0.delete(k);});   // strip so a reload/bookmark doesn't recount (keeps ?focus= etc.)
+      var qs=qp0.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash);}}catch(e){}
 });
 var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();fitSearch();},180);};
 // a search filters dots in place but the matches may be off-screen (and the list is viewport-only),
@@ -1675,6 +1683,7 @@ const DASH_HTML = String.raw`<!doctype html>
   <div class="tiles" id="tiles"></div>
   <section><h2>Sessions &amp; opens per day</h2><div id="daily"></div></section>
   <section><h2>Top referrers</h2><div id="referrers"></div></section>
+  <section><h2>Link tags / campaigns <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(?ref= or utm_)</span></h2><div id="src"></div></section>
   <div class="cols">
     <section><h2>Shade-by views</h2><div id="shade"></div></section>
     <section><h2>Cuisine filters</h2><div id="cuisine"></div></section>
@@ -1759,7 +1768,7 @@ const DASH_HTML = String.raw`<!doctype html>
     }).then(function(d){
       gate.hidden=true;app.hidden=false;
       tiles(d);renderDaily(d.daily);renderHourly(d.hourly);
-      barList("referrers",d.referrers);barList("shade",d.shade,null,SHADE_LABELS);barList("cuisine",d.cuisine);
+      barList("referrers",d.referrers);barList("src",d.src);barList("shade",d.shade,null,SHADE_LABELS);barList("cuisine",d.cuisine);
       barList("county",d.county,clab);barList("byType",d.byType,null,EVENT_LABELS);
       ratedList("openRest",d.openRest);ratedList("savedRest",d.savedRest);barList("openCuisine",d.openCuisine);
       document.getElementById("foot").textContent="Counts are sampling-estimated. Updated "+new Date().toLocaleString();
