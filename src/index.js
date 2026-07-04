@@ -1660,9 +1660,13 @@ const DASH_HTML = String.raw`<!doctype html>
   a.rowlink{text-decoration:none;color:inherit}
   a.rowlink:hover .lbl{color:var(--accent)}
   a.rowlink:hover{cursor:pointer}
-  .spark{display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:4px}
+  .spark{display:flex;align-items:flex-end;gap:2px;height:90px}
   .spark .b{flex:1;min-width:2px;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
   .spark .b:hover{opacity:1}
+  .chartwrap{display:flex;gap:7px;margin-top:6px}
+  .chartcol{flex:1;min-width:0}
+  .yaxis{display:flex;flex-direction:column;justify-content:space-between;height:90px;font-size:9px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .yaxis.yr{text-align:left}
   .muted{color:var(--muted);font-size:12px}
   #gate{max-width:360px;margin:60px auto;text-align:center}
   #gate input{width:100%;margin:12px 0;padding:9px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:14px}
@@ -1752,7 +1756,8 @@ const DASH_HTML = String.raw`<!doctype html>
       var hr=dt.getHours();   // sparse x-axis ticks: date at local midnight, am/pm markers at 6/12/18
       var t=hr===0?dt.toLocaleDateString([], {month:"numeric",day:"numeric"}):(hr===6?"6a":(hr===12?"12p":(hr===18?"6p":"")));
       axis+='<span class="t">'+t+'</span>';});
-    el.innerHTML='<div class="spark">'+bars+'</div><div class="axis">'+axis+'</div>';
+    var yax='<span>'+max+'</span><span>'+Math.round(max/2)+'</span><span>0</span>';   // sessions scale (both sides)
+    el.innerHTML='<div class="chartwrap"><div class="yaxis">'+yax+'</div><div class="chartcol"><div class="spark">'+bars+'</div><div class="axis">'+axis+'</div></div><div class="yaxis yr">'+yax+'</div></div>';
   }
   function tiles(d){
     var sess=0,opens=0,events=0,inst=0;
