@@ -286,6 +286,24 @@ export default {
       await env.DB.prepare("DELETE FROM bloopers").run();
       return Response.json({ ok: true });
     }
+    // prune bloopers whose id isn't in the supplied keep-list — removes de-curated ones while KEEPING
+    // curated bloopers whose source restaurant has since closed (they're anonymized quotes, still good)
+    if (url.pathname === "/bloopers-prune" && req.method === "POST") {
+      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
+      let ids; try { ids = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
+      if (!Array.isArray(ids) || !ids.length) return new Response("expected non-empty id array", { status: 400 });
+      // D1 caps bound params at 100, so compute the (usually tiny) to-delete set and delete it in chunks
+      const keep = new Set(ids);
+      const { results } = await env.DB.prepare("SELECT id FROM bloopers").all();
+      const del = (results || []).map((r) => r.id).filter((id) => !keep.has(id));
+      let removed = 0;
+      for (let i = 0; i < del.length; i += 90) {
+        const chunk = del.slice(i, i + 90), ph = chunk.map(() => "?").join(",");
+        const r = await env.DB.prepare(`DELETE FROM bloopers WHERE id IN (${ph})`).bind(...chunk).run();
+        removed += (r.meta && r.meta.changes) || 0;
+      }
+      return Response.json({ ok: true, removed });
+    }
     if (url.pathname === "/ingest-bloopers" && req.method === "POST") {
       if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
       let recs; try { recs = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
@@ -1787,6 +1805,8 @@ const DASH_HTML = String.raw`<!doctype html>
   document.getElementById("refresh").onclick=load;
   document.getElementById("days").onchange=load;
   if(tok())load();else showGate("");
+  // auto-refresh every 60s while the tab is open (skip when hidden or not signed in)
+  setInterval(function(){if(tok()&&document.visibilityState==="visible")load();},60000);
 })();
 </script>
 </body></html>`;

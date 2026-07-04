@@ -486,12 +486,16 @@ async function pushBloopers(bloopers) {
   // fresh crawl doesn't repopulate the full unfiltered reel. Human-readable companion (why each
   // ID is kept: name/city/violation/narrative) lives in ingest/bloopers_keep.txt. Delete/empty
   // the .json to push everything.
+  let keepIds = [];
   try {
-    const keep = new Set(JSON.parse(readFileSync(join(HERE, "bloopers_keep.json"), "utf8")));
+    keepIds = JSON.parse(readFileSync(join(HERE, "bloopers_keep.json"), "utf8"));
+    const keep = new Set(keepIds);
     if (keep.size) { const before = uniq.length; uniq = uniq.filter((b) => keep.has(b.id));
       console.log(`  blooper keep-list: ${uniq.length}/${before} retained`); }
   } catch {}
-  await fetch(WORKER_URL + "/bloopers-reset", { method: "POST", headers: { "Authorization": "Bearer " + INGEST_TOKEN } });
+  // UPSERT (no reset) so a curated blooper survives its restaurant closing / leaving the feed, then
+  // PRUNE to the keep-list so de-curated ones are removed. Bloopers are anonymized quotes, so keeping
+  // a closed restaurant's line is fine — and it stops us silently losing the best (shut-down-worthy) ones.
   let n = 0;
   for (let i = 0; i < uniq.length; i += 200) {
     const batch = uniq.slice(i, i + 200);
@@ -500,7 +504,12 @@ async function pushBloopers(bloopers) {
     if (!r.ok) throw new Error("ingest-bloopers " + r.status + " " + (await r.text()).slice(0, 200));
     n += batch.length; process.stdout.write(`  pushed ${n}/${uniq.length} bloopers\r`);
   }
-  console.log(`\n  pushed ${n} bloopers`);
+  if (keepIds.length) {   // remove any bloopers no longer on the keep-list (curation), keep the rest
+    const r = await fetch(WORKER_URL + "/bloopers-prune", { method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + INGEST_TOKEN }, body: JSON.stringify(keepIds) });
+    if (r.ok) { const j = await r.json(); console.log(`\n  pushed ${n} bloopers, pruned ${j.removed} off-list`); }
+    else console.log(`\n  pushed ${n} bloopers (prune failed ${r.status})`);
+  } else console.log(`\n  pushed ${n} bloopers`);
 }
 
 async function main() {
