@@ -6,6 +6,10 @@ workers_dev = true
 
 # custom domains (zone must be active on this Cloudflare account)
 [[routes]]
+pattern = "snoking.app"          # apex -> branded splash page (apps live on subdomains)
+custom_domain = true
+
+[[routes]]
 pattern = "food.snoking.live"
 custom_domain = true
 

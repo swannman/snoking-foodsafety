@@ -89,9 +89,26 @@ function cachePut(req, ctx, resp) {
   return resp;
 }
 
+// apex snoking.app is just a branded splash — the actual apps live on subdomains (food., dispatch.)
+const APEX_HTML = String.raw`<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#F6EFE8">
+<title>SnoKing</title>
+<style>
+  html,body{margin:0;height:100%;background:#F6EFE8}
+  body{display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+  img{width:auto;height:auto;max-width:min(600px,92vw);max-height:92vh}
+</style></head>
+<body><img src="/snoking.jpg" alt="SnoKing — Snohomish &amp; King Counties"></body></html>`;
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+
+    // apex host -> branded splash page (assets like /snoking.jpg are still served from the edge)
+    if (url.hostname === "snoking.app" && url.pathname === "/")
+      return new Response(APEX_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
 
     if (req.method === "GET" && CACHEABLE.has(url.pathname)) {
       const hit = await caches.default.match(req).catch(() => null);
