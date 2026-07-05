@@ -99,9 +99,10 @@ const APEX_HTML = String.raw`<!doctype html>
 <style>
   html,body{margin:0;height:100%;background:#F6EFE8}
   body{display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+  a{display:flex;line-height:0}
   img{width:auto;height:auto;max-width:min(600px,92vw);max-height:92vh}
 </style></head>
-<body><img src="/snoking.jpg" alt="SnoKing — Snohomish &amp; King Counties"></body></html>`;
+<body><a href="https://food.snoking.app/" aria-label="SnoKing Food Safety map"><img src="/snoking.jpg" alt="SnoKing — Snohomish &amp; King County restaurant food-safety ratings"></a></body></html>`;
 
 // ── server-rendered per-restaurant pages (SEO) ────────────────────────────────
 const LBL = { 1: "Excellent", 2: "Good", 3: "Okay", 4: "Needs to Improve", 0: "Unrated" };
