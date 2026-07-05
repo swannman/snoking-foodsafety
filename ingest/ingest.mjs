@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import { cuisineOf } from "./cuisine.mjs";
 import { blooperTag, blooperText, redactName } from "./bloopers.mjs";
 import { loadTagger } from "./regions.mjs";
-import { buildKingRubric, ratingKingStyle, tagViols } from "./king-rubric.mjs";
+import { buildKingRubric, ratingKingStyle, tagViols, riskN } from "./king-rubric.mjs";
 let tagTract = () => null;
 try { tagTract = loadTagger(); } catch (e) { console.log("tract tagger disabled:", e.message); }
 
@@ -373,9 +373,9 @@ async function snohomish() {
     if (++done % 50 === 0) process.stdout.write(`  sno crawl: ${done}/${list.length} (${fails} errors, ${bloopers.length} bloopers)\r`);
     const violations = svViol(latest);
     const ravg = avgRating(mh);
-    // headline rating now mirrors King: avg CRITICAL points over last 4 routines, King-derived cutoffs.
-    // Falls back to the old total-points rating if the rubric or routine history is unavailable.
-    const rating = ratingKingStyle(history, rubric) ?? snoRating(score) ?? (ravg != null ? Math.round(ravg) : null);
+    // headline rating mirrors King: avg CRITICAL points over the last N routines (N=4 high-risk, 2 low/med
+    // by category — matches King's risk-tiered method), King-derived cutoffs. Falls back if no rubric/history.
+    const rating = ratingKingStyle(history, rubric, riskN(category)) ?? snoRating(score) ?? (ravg != null ? Math.round(ravg) : null);
     recs.push({
       id: "sno:" + f.FacilityId, county: "snohomish", name: (f.FacilityName || "").trim(),
       address: (f.Address || "").replace(/\s+/g, " ").trim(), city, zip, lat: null, lon: null,

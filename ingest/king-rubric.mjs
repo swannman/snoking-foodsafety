@@ -23,16 +23,26 @@ export function tagViols(vlist, map) {
     return m ? { ...v, type: m.critical ? "RED" : "BLUE", points: m.points } : v;
   });
 }
-function avgCrit(history, map) {          // avg critical points over last 4 routine inspections (newest-first)
+function avgCrit(history, map, n) {       // avg critical points over the last N routine inspections (newest-first)
   const rt = (history || []).filter((h) => /routine/i.test(h.svc || ""));
-  const arr = rt.length ? rt.slice(0, 4) : (history && history[0] ? [history[0]] : []);   // fallback: latest of any type
+  const arr = rt.length ? rt.slice(0, n) : (history && history[0] ? [history[0]] : []);   // fallback: latest of any type
   if (!arr.length) return null;
   const sums = arr.map((h) => critPoints(h.v, map));
   return sums.reduce((a, b) => a + b, 0) / sums.length;
 }
-export function ratingKingStyle(history, rubric) {   // -> 1..4 (lower better), or null if no inspections
+// King averages the last N routine inspections, where N depends on risk category: 4 for restaurants
+// (Risk III / high risk), 2 for lower-risk establishments (Risk I & II). Snohomish's category field
+// carries the same LOW/MEDIUM/HIGH RISK label, so we map it straight across.
+export function riskN(category) {
+  const c = (category || "").toUpperCase();
+  if (c.includes("HIGH RISK")) return 4;
+  if (c.includes("MEDIUM RISK") || c.includes("LOW RISK")) return 2;
+  if (/SCHOOL|CAMP|CATERING/.test(c)) return 4;   // cook full meals but carry no explicit risk label
+  return 2;                                        // vending, bakery, misc low-complexity
+}
+export function ratingKingStyle(history, rubric, n = 4) {   // -> 1..4 (lower better), or null if no inspections
   if (!rubric || !rubric.map || !rubric.cutoffs) return null;
-  const a = avgCrit(history, rubric.map);
+  const a = avgCrit(history, rubric.map, n);
   if (a == null) return null;
   const [c1, c2, c3] = rubric.cutoffs;
   return a <= c1 ? 1 : a <= c2 ? 2 : a <= c3 ? 3 : 4;
@@ -50,8 +60,10 @@ export function buildKingRubric(kingRecs) {
   const map = {};
   for (const it in typ) { const t = modal(typ[it], "BLUE"); map[it] = { critical: t === "RED", points: +modal(pts[it], t === "RED" ? "5" : "3") }; }
   // cutoffs: the avg-critical-points values that reproduce King's GRADED distribution
+  // cutoffs are the category thresholds on "avg critical points per routine" — shared across risk tiers
+  // (King uses the same categories, just averaged over N=2 or 4). Derive them from King's N=4 restaurants.
   const xs = [];
-  for (const r of kingRecs) { if (r.grade == null) continue; const a = avgCrit((r.detail && r.detail.history) || [], map); if (a != null) xs.push([a, r.grade]); }
+  for (const r of kingRecs) { if (r.grade == null) continue; const a = avgCrit((r.detail && r.detail.history) || [], map, 4); if (a != null) xs.push([a, r.grade]); }
   xs.sort((u, w) => u[0] - w[0]);
   const vals = xs.map((z) => z[0]), N = vals.length || 1, cnt = { 1: 0, 2: 0, 3: 0, 4: 0 };
   for (const z of xs) cnt[z[1]]++;
