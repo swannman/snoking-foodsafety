@@ -121,8 +121,12 @@ export default {
       if (!ok) return new Response("unauthorized", { status: 401 });
       const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get("days") || "7", 10) || 7));
       const since = `now() - INTERVAL '${days}' DAY`;
+      // Analytics Engine stores UTC and toDate() takes no timezone arg, so bucket the daily chart by
+      // Pacific date by shifting the timestamp by the CURRENT Pacific offset (7h PDT / 8h PST — auto).
+      const nowD = new Date();
+      const pacOff = Math.round((new Date(nowD.toLocaleString("en-US", { timeZone: "UTC" })) - new Date(nowD.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }))) / 3600000);
       const Q = {
-        daily: `SELECT toDate(timestamp) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens, sum(_sample_interval) AS events FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY k`,
+        daily: `SELECT toDate(timestamp - INTERVAL '${pacOff}' HOUR) AS k, sum(if(blob1='app',_sample_interval,0)) AS sessions, sum(if(blob1='open',_sample_interval,0)) AS opens, sum(_sample_interval) AS events FROM snoking_events WHERE timestamp > ${since} GROUP BY k ORDER BY k`,
         byType: `SELECT blob1 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1 NOT IN ('ref','src') AND timestamp > ${since} GROUP BY k ORDER BY v DESC`,
         referrers: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='ref' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 15`,
         src: `SELECT blob2 AS k, sum(_sample_interval) AS v FROM snoking_events WHERE blob1='src' AND blob2!='' AND timestamp > ${since} GROUP BY k ORDER BY v DESC LIMIT 25`,
@@ -1705,7 +1709,7 @@ const DASH_HTML = String.raw`<!doctype html>
 </div>
 <main id="app" hidden>
   <div class="tiles" id="tiles"></div>
-  <section><h2>Sessions &amp; opens per day</h2><div id="daily"></div></section>
+  <section><h2>Sessions &amp; opens per day <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(Pacific)</span></h2><div id="daily"></div></section>
   <section><h2>Top referrers</h2><div id="referrers"></div></section>
   <section><h2>Link tags / campaigns <span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">(?ref= or utm_)</span></h2><div id="src"></div></section>
   <div class="cols">
