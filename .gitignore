@@ -7,3 +7,4 @@ ingest/data.json
 ingest/programs.json
 ingest/bloopers.json
 ingest/*.log
+ingest/.indexnow-key

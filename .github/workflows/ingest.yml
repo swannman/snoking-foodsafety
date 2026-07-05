@@ -49,3 +49,8 @@ jobs:
         run: |
           curl -fsS -X POST "https://snoking-foodsafety.3lemenopy.workers.dev/push/dispatch" \
             -H "Authorization: Bearer $INGEST_TOKEN" && echo " (dispatch ok)" || echo " (dispatch failed, non-fatal)"
+      # notify Bing/Yandex of the refreshed pages via IndexNow (key file is served from public/)
+      - name: IndexNow ping
+        if: success()
+        working-directory: ingest
+        run: node indexnow-submit.mjs || echo " (indexnow failed, non-fatal)"

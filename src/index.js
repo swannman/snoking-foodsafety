@@ -559,7 +559,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sno/King Food Safety — Restaurant Inspection Ratings</title>
-<meta name="description" content="Look up food-safety inspection ratings for every restaurant in Snohomish and King counties (WA) on one map. See each place's full inspection history and violations — free, no account.">
+<meta name="description" content="Health-inspection ratings for every restaurant in Snohomish &amp; King counties, WA — see any spot's full inspection history and violations on one map.">
 <link rel="canonical" href="https://food.snoking.app/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Sno/King Food Safety">
