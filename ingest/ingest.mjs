@@ -254,7 +254,7 @@ async function fixGeocodes(list) {
 async function googleGeocode(addr) {
   if (!GOOGLE_KEY) return null;
   try { const d = await getJson("https://maps.googleapis.com/maps/api/geocode/json?key=" + GOOGLE_KEY + "&address=" + encodeURIComponent(addr) + "&region=us&components=administrative_area:WA");
-    if (d.status === "OK" && d.results[0]) { const l = d.results[0].geometry.location; return { lat: l.lat, lon: l.lng }; } } catch {}
+    if (d.status === "OK" && d.results[0]) { const g = d.results[0].geometry; return { lat: g.location.lat, lon: g.location.lng, type: g.location_type }; } } catch {}
   return null;
 }
 
@@ -451,16 +451,20 @@ async function geocodeSno(recs) {
     else need.push({ id: r.id, key: keyOf(r), street: cleanStreet(r.address), city: r.city, zip: r.zip, rec: r }); }
   console.log(`  sno geocode: ${need.length} to look up (${recs.length - need.length} cached)`);
   if (need.length) {
-    const found = await censusBatch(need);
-    for (const n of need) { const h = found.get(n.id); if (h) { n.rec.lat = h.lat; n.rec.lon = h.lon; cache[n.key] = h; } }
-    const misses = need.filter((n) => !found.has(n.id));
-    console.log(`\n  sno geocode: ${misses.length} batch misses -> oneline + Google fallback`);
-    let d = 0, fb = 0, gb = 0;
-    for (const n of misses) { let h = await onelineGeocode(n.street, n.city, n.zip);
-      // Census can't place highways / SR-99 / odd suites — let Google try the RAW (un-cleaned) address
-      if (!h) { h = await googleGeocode([n.rec.address, n.city, "WA", n.zip].filter(Boolean).join(", ")); if (h) gb++; }
-      if (h) { n.rec.lat = h.lat; n.rec.lon = h.lon; cache[n.key] = h; fb++; } await sleep(120);
-      if (++d % 25 === 0) process.stdout.write(`  fallback: ${d}/${misses.length} (${fb} found, ${gb} via Google)\r`); }
+    const found = await censusBatch(need);   // fast free pass; used as fallback when Google isn't precise
+    for (const n of need) { const h = found.get(n.id); if (h) { n.rec.lat = h.lat; n.rec.lon = h.lon; } }
+    // PREFER Google ROOFTOP (the actual building) over Census street-interpolation — Census is routinely
+    // 100s of m off for Snohomish (sometimes km). Google-check every uncached record; keep Census only
+    // where Google can't give a rooftop hit. Cost stays low since it's cached and only new addresses run.
+    let d = 0, roof = 0, fb = 0;
+    for (const n of need) {
+      const g = await googleGeocode([n.rec.address, n.city, "WA", n.zip].filter(Boolean).join(", "));
+      if (g && g.type === "ROOFTOP") { n.rec.lat = g.lat; n.rec.lon = g.lon; roof++; }
+      else if (n.rec.lat == null) { const h = (await onelineGeocode(n.street, n.city, n.zip)) || g; if (h) { n.rec.lat = h.lat; n.rec.lon = h.lon; fb++; } }
+      if (n.rec.lat != null) cache[n.key] = { lat: n.rec.lat, lon: n.rec.lon };
+      await sleep(90);
+      if (++d % 25 === 0) process.stdout.write(`  sno geocode: ${d}/${need.length} (${roof} rooftop, ${fb} fallback)\r`);
+    }
     writeFileSync(CACHE_PATH, JSON.stringify(cache));
   }
   console.log(`\n  sno: ${recs.filter((r) => r.lat != null).length}/${recs.length} geocoded`);
@@ -526,6 +530,13 @@ async function main() {
   }
   let nov = 0; for (const r of recs) if (ovMap[r.id]) { r.cuisine = ovMap[r.id]; nov++; }
   console.log(`  applied ${nov} cuisine overrides`);
+  // manual coordinate overrides: reported pins where Census interpolated to the wrong spot (e.g. onto a
+  // neighboring street). Keyed by id -> {lat, lon}; applied post-geocode so they stick across re-ingests.
+  try {
+    const co = JSON.parse(readFileSync(join(HERE, "coord_overrides.json"), "utf8"));
+    let ncoord = 0; for (const r of recs) { const o = co[r.id]; if (o && o.lat != null && o.lon != null) { r.lat = o.lat; r.lon = o.lon; r.tract_id = null; ncoord++; } }
+    if (ncoord) console.log(`  applied ${ncoord} coordinate overrides`);
+  } catch {}
   // tag census tracts now that all coords are known (Snohomish gets coords during geocoding)
   for (const r of recs) if (r.lat != null && r.lon != null && r.tract_id == null) r.tract_id = tagTract(r.lon, r.lat);
   const mappable = recs.filter((r) => r.lat != null && r.lon != null);
