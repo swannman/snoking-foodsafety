@@ -118,7 +118,7 @@ function restaurantHtml(r) {
   const cityC = titleCase(r.city), county = r.county === "king" ? "King County" : "Snohomish County";
   const addr = [r.address, cityC, "WA", r.zip].filter(Boolean).join(", ");
   const canonical = "https://food.snoking.app" + restPath(r);
-  const title = `${r.name} — Health Inspection Rating (${cityC}) | SnoKing Food Safety`;
+  const title = `${r.name} — Health Inspection Rating (${cityC}) | Sno/King Food Safety`;
   const desc = `${r.name} at ${addr}: current food-safety rating "${label}". See the full inspection history and violations from ${county} health-department records.`;
   const hist = (det.history || []).slice(0, 20).map((h) =>
     `<tr><td>${hesc(h.date || "")}</td><td>${hesc(h.label || "")}</td><td>${h.score != null ? h.score + " pts" : ""}</td></tr>`).join("");
@@ -136,7 +136,7 @@ function restaurantHtml(r) {
 <link rel="apple-touch-icon" href="/icon-180.png?v=7">
 <meta name="theme-color" content="#0d1117">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="SnoKing Food Safety">
+<meta property="og:site_name" content="Sno/King Food Safety">
 <meta property="og:title" content="${hesc(r.name + " — Health Inspection Rating")}">
 <meta property="og:description" content="${hesc(desc)}">
 <meta property="og:url" content="${canonical}">
@@ -161,7 +161,7 @@ function restaurantHtml(r) {
   .muted{color:#8b949e;font-size:13px}
 </style></head>
 <body><div class="wrap">
-  <p class="muted"><a href="https://food.snoking.app/">← SnoKing Food Safety map</a></p>
+  <p class="muted"><a href="https://food.snoking.app/">← Sno/King Food Safety map</a></p>
   <h1>${hesc(r.name)}</h1>
   <div class="addr">${hesc(addr)} · ${county}</div>
   <p><span class="badge" style="background:${color}">${label}</span></p>
@@ -301,7 +301,7 @@ export default {
       if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN) return new Response("unauthorized", { status: 401 });
       let b; try { b = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
       if (!b.subscription) return new Response("need subscription", { status: 400 });
-      const status = await sendPush(b.subscription, b.payload || { title: "SnoKing test 🔔", body: "Push notifications are working.", url: "/" }, env);
+      const status = await sendPush(b.subscription, b.payload || { title: "Sno/King test 🔔", body: "Push notifications are working.", url: "/" }, env);
       return Response.json({ status });
     }
 
@@ -558,17 +558,17 @@ export default {
 const MAP_HTML = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SnoKing Food Safety — Restaurant Inspection Ratings</title>
+<title>Sno/King Food Safety — Restaurant Inspection Ratings</title>
 <meta name="description" content="Look up food-safety inspection ratings for every restaurant in Snohomish and King counties (WA) on one map. See each place's full inspection history and violations — free, no account.">
 <link rel="canonical" href="https://food.snoking.app/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="SnoKing Food Safety">
-<meta property="og:title" content="SnoKing Food Safety — Restaurant Inspection Ratings">
+<meta property="og:site_name" content="Sno/King Food Safety">
+<meta property="og:title" content="Sno/King Food Safety — Restaurant Inspection Ratings">
 <meta property="og:description" content="Every restaurant in Snohomish + King counties (WA), color-coded by its health-inspection rating. Tap any spot for its full inspection history.">
 <meta property="og:url" content="https://food.snoking.app/">
 <meta property="og:image" content="https://food.snoking.app/snoking.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="SnoKing Food Safety — Restaurant Inspection Ratings">
+<meta name="twitter:title" content="Sno/King Food Safety — Restaurant Inspection Ratings">
 <meta name="twitter:description" content="Every restaurant in Snohomish + King counties (WA), color-coded by its health-inspection rating.">
 <meta name="twitter:image" content="https://food.snoking.app/snoking.jpg">
 <meta name="theme-color" content="#0d1117">
@@ -703,7 +703,7 @@ const MAP_HTML = String.raw`<!doctype html>
 <div id="wrap">
   <div id="feed">
     <div id="head">
-      <h1>SnoKing Food Safety <a class="statslink" id="lnk-stats" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" id="lnk-bloop" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Zoom to my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
+      <h1>Sno/King Food Safety <a class="statslink" id="lnk-stats" href="/stats" title="Ratings by area" aria-label="Stats">📊</a> <a class="statslink" id="lnk-bloop" href="/bloopers" title="Inspection bloopers" aria-label="Bloopers">😅</a> <span class="statslink" id="bell" role="button" title="Get notified when a favorite's rating changes" aria-label="Alerts" style="font-size:14px">🔔</span> <a class="statslink" id="about" href="/about" title="About &amp; methodology" aria-label="About"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></a> <span class="statslink" id="loc" role="button" title="Zoom to my location" aria-label="My location"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M21 3 3 10.53l7.61 2.86L13.47 21 21 3z"/></svg></span> <span class="tog" id="tog" title="Show/hide filters">Filters <b>▾</b></span></h1>
     </div>
     <div id="controls">
       <div class="qwrap"><button type="button" id="qclear" aria-label="Clear search" title="Clear">×</button><input id="q" placeholder="Search name or address…" autocomplete="off"></div>
@@ -1365,7 +1365,7 @@ const STATS_HTML = String.raw`<!doctype html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ratings">
 <link rel="apple-touch-icon" href="/icon-180.png?v=7">
-<title>SnoKing Food Safety — Ratings by Area</title>
+<title>Sno/King Food Safety — Ratings by Area</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -1624,7 +1624,7 @@ const BLOOPERS_HTML = String.raw`<!doctype html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ratings">
 <link rel="apple-touch-icon" href="/icon-180.png?v=7">
-<title>SnoKing Food Safety — Inspection Bloopers</title>
+<title>Sno/King Food Safety — Inspection Bloopers</title>
 <style>
   :root{--bg:#0d1117;--card:#161b22;--ink:#e6edf3;--muted:#8b949e;--line:#2a3038;--accent:#58a6ff}
   *{box-sizing:border-box}
@@ -1687,7 +1687,7 @@ const ABOUT_HTML = String.raw`<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ratings">
-<title>About — SnoKing Food Safety</title>
+<title>About — Sno/King Food Safety</title>
 <style>
   :root{--bg:#0d1117;--ink:#e6edf3;--muted:#8b949e;--line:#2a3038;--accent:#58a6ff}
   *{box-sizing:border-box}
@@ -1765,7 +1765,7 @@ const DASH_HTML = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>SnoKing — Dashboard</title>
+<title>Sno/King — Dashboard</title>
 <style>
   :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--line:#283039;--accent:#58a6ff}
   *{box-sizing:border-box}
@@ -1817,7 +1817,7 @@ const DASH_HTML = String.raw`<!doctype html>
   #gate input{width:100%;margin:12px 0;padding:9px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:14px}
 </style></head><body>
 <header>
-  <h1>SnoKing Analytics</h1>
+  <h1>Sno/King Analytics</h1>
   <a href="/">← map</a>
   <select id="days"><option value="1">Today</option><option value="2">2 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="90">90 days</option></select>
   <button id="refresh" title="Refresh">Refresh</button>
