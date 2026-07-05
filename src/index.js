@@ -94,6 +94,7 @@ const APEX_HTML = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#F6EFE8">
+<link rel="icon" type="image/png" href="/icon-192.png?v=7">
 <title>SnoKing</title>
 <style>
   html,body{margin:0;height:100%;background:#F6EFE8}
@@ -102,6 +103,75 @@ const APEX_HTML = String.raw`<!doctype html>
 </style></head>
 <body><img src="/snoking.jpg" alt="SnoKing — Snohomish &amp; King Counties"></body></html>`;
 
+// ── server-rendered per-restaurant pages (SEO) ────────────────────────────────
+const LBL = { 1: "Excellent", 2: "Good", 3: "Okay", 4: "Needs to Improve", 0: "Unrated" };
+const COL = { 1: "#2ecc71", 2: "#a8c800", 3: "#f0a020", 4: "#e5484d", 0: "#7d8590" };
+const hesc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const titleCase = (s) => String(s || "").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+const slugify = (s) => (String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80)) || "place";
+const idKey = (id) => id.replace(":", ".");                 // "sno:FA123" -> "sno.FA123" (URL-clean; ids have no dots)
+const restPath = (r) => "/r/" + idKey(r.id) + "/" + slugify(r.name + "-" + r.city);
+function restaurantHtml(r) {
+  let det = {}; try { det = JSON.parse(r.detail || "{}"); } catch {}
+  const rating = r.rating || 0, label = LBL[rating] || "Unrated", color = COL[rating] || COL[0];
+  const cityC = titleCase(r.city), county = r.county === "king" ? "King County" : "Snohomish County";
+  const addr = [r.address, cityC, "WA", r.zip].filter(Boolean).join(", ");
+  const canonical = "https://food.snoking.app" + restPath(r);
+  const title = `${r.name} — Health Inspection Rating (${cityC}) | SnoKing Food Safety`;
+  const desc = `${r.name} at ${addr}: current food-safety rating "${label}". See the full inspection history and violations from ${county} health-department records.`;
+  const hist = (det.history || []).slice(0, 20).map((h) =>
+    `<tr><td>${hesc(h.date || "")}</td><td>${hesc(h.label || "")}</td><td>${h.score != null ? h.score + " pts" : ""}</td></tr>`).join("");
+  const recent = (det.violations || []).slice(0, 12).map((v) => `<li>${hesc(v.label || "")}</li>`).join("");
+  const ld = { "@context": "https://schema.org", "@type": "Restaurant", name: r.name, url: canonical,
+    address: { "@type": "PostalAddress", streetAddress: r.address || undefined, addressLocality: cityC, addressRegion: "WA", postalCode: r.zip || undefined, addressCountry: "US" } };
+  if (r.lat != null && r.lon != null) ld.geo = { "@type": "GeoCoordinates", latitude: r.lat, longitude: r.lon };
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${hesc(title)}</title>
+<meta name="description" content="${hesc(desc)}">
+<link rel="canonical" href="${canonical}">
+<link rel="icon" type="image/png" href="/icon-192.png?v=7">
+<link rel="apple-touch-icon" href="/icon-180.png?v=7">
+<meta name="theme-color" content="#0d1117">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SnoKing Food Safety">
+<meta property="og:title" content="${hesc(r.name + " — Health Inspection Rating")}">
+<meta property="og:description" content="${hesc(desc)}">
+<meta property="og:url" content="${canonical}">
+<meta property="og:image" content="https://food.snoking.app/snoking.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">${JSON.stringify(ld)}</script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0d1117;color:#e6edf3;font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:720px;margin:0 auto;padding:26px 20px 64px}
+  a{color:#58a6ff}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+  h2{font-size:16px;margin:26px 0 6px}
+  .addr{color:#8b949e;margin-bottom:14px}
+  .badge{display:inline-block;padding:3px 12px;border-radius:999px;font-weight:700;color:#0d1117}
+  table{border-collapse:collapse;width:100%;margin:8px 0;font-size:14px}
+  th,td{border-bottom:1px solid #2a3038;padding:6px 8px;text-align:left}
+  th{color:#8b949e;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  ul{padding-left:20px;color:#c9d2dc}
+  li{margin:3px 0}
+  .cta{display:inline-block;margin:8px 12px 4px 0;padding:9px 15px;border:1px solid #2a3038;border-radius:8px;text-decoration:none;font-weight:600}
+  .muted{color:#8b949e;font-size:13px}
+</style></head>
+<body><div class="wrap">
+  <p class="muted"><a href="https://food.snoking.app/">← SnoKing Food Safety map</a></p>
+  <h1>${hesc(r.name)}</h1>
+  <div class="addr">${hesc(addr)} · ${county}</div>
+  <p><span class="badge" style="background:${color}">${label}</span></p>
+  ${r.score != null ? `<p><b>${r.county === "king" ? "Inspection score" : "Violation points"}:</b> ${r.score} <span class="muted">(lower is better)</span></p>` : ""}
+  <p><a class="cta" href="https://food.snoking.app/?focus=${encodeURIComponent(r.id)}">View on the map →</a>${r.report_url ? `<a class="cta" href="${hesc(r.report_url)}" rel="noopener">Official county report →</a>` : ""}</p>
+  ${recent ? `<h2>Most recent violations</h2><ul>${recent}</ul>` : ""}
+  ${hist ? `<h2>Inspection history</h2><table><tr><th>Date</th><th>Result</th><th>Points</th></tr>${hist}</table>` : ""}
+  <p class="muted">Ratings are derived from public ${county} health-department inspection records. For authoritative information, use the official report linked above.</p>
+</div></body></html>`;
+}
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
@@ -109,6 +179,27 @@ export default {
     // apex host -> branded splash page (assets like /snoking.jpg are still served from the edge)
     if (url.hostname === "snoking.app" && url.pathname === "/")
       return new Response(APEX_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+
+    // server-rendered per-restaurant page (SEO): /r/<idkey>[/<slug>]
+    if (url.pathname.startsWith("/r/")) {
+      const idkey = decodeURIComponent(url.pathname.slice(3).split("/")[0]);
+      const id = idkey.replace(/\./, ":");
+      const row = await env.DB.prepare("SELECT id,county,name,address,city,zip,lat,lon,rating,score,report_url,detail FROM establishments WHERE id=?").bind(id).first();
+      if (!row) return new Response("Restaurant not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+      return new Response(restaurantHtml(row), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+    }
+    // sitemap of every restaurant page (cached hard — one full scan per day per colo)
+    if (url.pathname === "/sitemap.xml") {
+      const hit = await caches.default.match(req).catch(() => null); if (hit) return hit;
+      const { results } = await env.DB.prepare("SELECT id,name,city FROM establishments").all();
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+      for (const p of ["", "about", "stats", "bloopers"]) xml += `<url><loc>https://food.snoking.app/${p}</loc></url>`;
+      for (const r of results || []) xml += `<url><loc>https://food.snoking.app${restPath(r)}</loc></url>`;
+      xml += `</urlset>`;
+      const resp = new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
+      if (ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(req, resp.clone()));
+      return resp;
+    }
 
     if (req.method === "GET" && CACHEABLE.has(url.pathname)) {
       const hit = await caches.default.match(req).catch(() => null);
@@ -467,6 +558,18 @@ const MAP_HTML = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SnoKing Food Safety — Restaurant Inspection Ratings</title>
+<meta name="description" content="Look up food-safety inspection ratings for every restaurant in Snohomish and King counties (WA) on one map. See each place's full inspection history and violations — free, no account.">
+<link rel="canonical" href="https://food.snoking.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SnoKing Food Safety">
+<meta property="og:title" content="SnoKing Food Safety — Restaurant Inspection Ratings">
+<meta property="og:description" content="Every restaurant in Snohomish + King counties (WA), color-coded by its health-inspection rating. Tap any spot for its full inspection history.">
+<meta property="og:url" content="https://food.snoking.app/">
+<meta property="og:image" content="https://food.snoking.app/snoking.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SnoKing Food Safety — Restaurant Inspection Ratings">
+<meta name="twitter:description" content="Every restaurant in Snohomish + King counties (WA), color-coded by its health-inspection rating.">
+<meta name="twitter:image" content="https://food.snoking.app/snoking.jpg">
 <meta name="theme-color" content="#0d1117">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png?v=7">
