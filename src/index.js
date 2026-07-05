@@ -976,23 +976,25 @@ function popupShell(d){
 function cleanNote(t){if(!t)return t;
   var paras=String(t).split(/\n\s*\n/),kept=paras.filter(function(p){return !/^\s*\(\s*WAC\b/i.test(p);});
   return (kept.length?kept:paras).join("\n\n").replace(/[ \t]+\n/g,"\n").trim();}
-function violHtml(vs){var s="";(vs||[]).forEach(function(x){
-  var tag=x.type?'<span class="vt" style="background:'+(x.type==="RED"?"#e5484d":"#3b82f6")+'">'+esc(x.type)+(x.points!=null?" "+x.points:"")+'</span>':"";
+// hidePts: Snohomish per-violation points are King's substituted values (its feed omits them), so they
+// don't reconcile with Snohomish's own inspection total — show the RED/BLUE severity only, no number.
+function violHtml(vs,hidePts){var s="";(vs||[]).forEach(function(x){
+  var tag=x.type?'<span class="vt" style="background:'+(x.type==="RED"?"#e5484d":"#3b82f6")+'">'+esc(x.type)+((x.points!=null&&!hidePts)?" "+x.points:"")+'</span>':"";
   var head=tag+esc(x.label||"");
   // a narrative (Snohomish) collapses behind a per-violation expander so cards stay short; King items (no note) are plain rows
   var note=cleanNote(x.note);
   if(note)s+='<details class="viold"><summary>'+head+'</summary><div class="note">'+esc(note)+'</div></details>';
   else s+='<div class="viol"><div class="vh">'+head+'</div></div>';});return s;}
-function detailHtml(j){
-  var h="",v=j.violations||[];
+function detailHtml(j,co){
+  var h="",v=j.violations||[],hp=co==="s";   // hide King-substituted per-violation points for Snohomish
   // both sections are collapsible; fitPopup() collapses them as needed when the card is taller than the screen
-  if(v.length)h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody">'+violHtml(v.slice(0,8))+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div></details>';
+  if(v.length)h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody">'+violHtml(v.slice(0,8),hp)+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div></details>';
   else h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody"><div style="font-size:11.5px;color:#2a8a4a">No violations recorded ✓</div></div></details>';
   var hist=j.history||[];
   if(hist.length>1){h+='<details class="pp-sec ppsec sec-hist" open><summary>Inspection history <span class="hsub">tap a date for details</span></summary><div class="ppbody">';
     hist.slice(0,16).forEach(function(x){
       var left=fmtDate(x.date)+(x.label?' · '+esc(x.label):""),right=(x.score!=null?x.score+" pts":""),vs=x.v||[];
-      if(vs.length)h+='<details class="histd"><summary><span class="hd">'+left+'</span><span class="hr">'+right+'</span></summary><div class="histv">'+violHtml(vs)+'</div></details>';
+      if(vs.length)h+='<details class="histd"><summary><span class="hd">'+left+'</span><span class="hr">'+right+'</span></summary><div class="histv">'+violHtml(vs,hp)+'</div></details>';
       else h+='<div class="hist"><span>'+left+'</span><span>'+right+'</span></div>';
     });
     h+='</div></details>';}
@@ -1003,7 +1005,7 @@ function wirePopup(root,d,onLoaded){
   if(!root)return;
   var box=root.querySelector(".pp-detail");
   if(box&&!box.dataset.loaded){box.dataset.loaded="1";
-    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j);
+    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j,d.co);
       var hds=box.querySelectorAll("details.histd");hds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open){track("hist");hds.forEach(function(o){if(o!==dt)o.open=false;});}});});
       // violation expanders behave like an accordion: opening one closes the others
       var vds=box.querySelectorAll("details.viold");vds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)vds.forEach(function(o){if(o!==dt)o.open=false;});});});
