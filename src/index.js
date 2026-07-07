@@ -18,6 +18,17 @@ function avgRating(history, n = 5) {
   const rs = (history || []).map((h) => pointRating(h.score)).filter((r) => r != null).slice(0, n);
   return rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 100) / 100 : null;
 }
+// Infinite retention: union already-stored inspection history with a fresh county pull so
+// records that have since aged out of the county API are never dropped. Dedup by date+service;
+// the fresh copy wins on conflict (rescoring/corrections propagate). Newest-first, capped for
+// row-size safety (200 inspections ≈ 30+ years — effectively unbounded for a real establishment).
+function histKey(h) { return (h.date || "") + "|" + (h.svc || h.label || ""); }
+function mergeHistory(prior, fresh) {
+  const m = new Map();
+  for (const h of prior || []) if (h && (h.date || h.svc || h.label)) m.set(histKey(h), h);
+  for (const h of fresh || []) if (h && (h.date || h.svc || h.label)) m.set(histKey(h), h);  // fresh overwrites
+  return [...m.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 200);
+}
 const isRoutine = (s) => /routine/i.test(s || "");
 function ratingRoutineOf(h) { for (const x of h || []) if (isRoutine(x.svc)) { const r = pointRating(x.score); if (r != null) return r; } return null; }
 function ratingWorstOf(h) { let w = null; for (const x of h || []) { const r = pointRating(x.score); if (r != null && (w == null || r > w)) w = r; } return w; }
@@ -312,7 +323,27 @@ export default {
       try { recs = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
       if (!Array.isArray(recs)) return new Response("expected array", { status: 400 });
       const now = new Date().toISOString();
-      const stmts = recs.slice(0, 1000).map((r) =>
+      const batch = recs.slice(0, 1000);
+      // infinite retention: pull the history we already stored for these ids and union it with the
+      // fresh pull, so inspections that have since aged out of the county API are preserved forever.
+      const priorHist = new Map();
+      const ids = batch.map((r) => r.id).filter(Boolean);
+      for (let i = 0; i < ids.length; i += 90) {   // D1 caps bound params at 100
+        const chunk = ids.slice(i, i + 90);
+        const { results: rows } = await env.DB.prepare(
+          `SELECT id, detail FROM establishments WHERE id IN (${chunk.map(() => "?").join(",")})`
+        ).bind(...chunk).all();
+        for (const row of rows || []) {
+          try { const d = JSON.parse(row.detail || "{}"); if (Array.isArray(d.history) && d.history.length) priorHist.set(row.id, d.history); } catch {}
+        }
+      }
+      for (const r of batch) {
+        if (r && typeof r.detail === "object" && r.detail && Array.isArray(r.detail.history)) {
+          const prev = priorHist.get(r.id);
+          if (prev && prev.length) r.detail = { ...r.detail, history: mergeHistory(prev, r.detail.history) };
+        }
+      }
+      const stmts = batch.map((r) =>
         env.DB.prepare(
           `INSERT INTO establishments
              (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,change_svc,change_detected_at,notified_at,updated_at)
