@@ -362,6 +362,7 @@ export default {
              rating_changed_at=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.inspect_date ELSE establishments.rating_changed_at END,
              change_svc=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.change_svc ELSE establishments.change_svc END,
              change_detected_at=CASE WHEN excluded.rating IS NOT establishments.rating THEN excluded.updated_at ELSE establishments.change_detected_at END,
+             delisted_at=NULL,   -- present in this crawl => currently listed (clears any prior delist / resets the 6-month clock)
              rating=excluded.rating`
         ).bind(
           r.id, r.county, r.name, r.address ?? null, r.city ?? null, r.zip ?? null, r.lat ?? null, r.lon ?? null,
@@ -376,6 +377,37 @@ export default {
       );
       for (let i = 0; i < stmts.length; i += 25) await env.DB.batch(stmts.slice(i, i + 25));
       return Response.json({ ok: true, n: stmts.length });
+    }
+
+    if (url.pathname === "/reconcile-delisted" && req.method === "POST") {
+      // Called after a FULL county crawl with the complete set of currently-listed ids. Any stored
+      // row for that county NOT in the set has vanished from the source portal — mark it delisted
+      // (closed). It stays on the map with its last rating; once it's been delisted >6 months
+      // continuously it's deleted. Re-appearing clears the flag (handled by /ingest above).
+      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN)
+        return new Response("unauthorized", { status: 401 });
+      let body; try { body = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
+      const county = body && body.county, live = new Set((body && body.ids) || []);
+      if (!county || !live.size) return new Response("need county + non-empty ids", { status: 400 });
+      const have = (await env.DB.prepare("SELECT COUNT(*) AS n FROM establishments WHERE county=?").bind(county).first())?.n || 0;
+      // guard: a truncated crawl must never mass-delist. Require the live set to cover most of what we have.
+      if (live.size < have * 0.7) return Response.json({ skipped: true, reason: "live set too small", live: live.size, have });
+      const { results } = await env.DB.prepare("SELECT id, delisted_at FROM establishments WHERE county=?").bind(county).all();
+      const now = new Date().toISOString();
+      const cutoff = new Date(Date.now() - 183 * 86400000).toISOString();   // ~6 months
+      const toMark = [], toDelete = [];
+      for (const row of results || []) {
+        if (live.has(row.id)) continue;                       // still listed — nothing to do (clear handled by /ingest)
+        if (!row.delisted_at) toMark.push(row.id);            // newly vanished — start the clock
+        else if (row.delisted_at < cutoff) toDelete.push(row.id);   // gone >6 months — remove
+      }
+      const chunk = (arr, sql, extra) => { for (let i = 0; i < arr.length; i += 90) { const c = arr.slice(i, i + 90);
+        stmtsQ.push(env.DB.prepare(sql.replace("(?)", "(" + c.map(() => "?").join(",") + ")")).bind(...(extra || []), ...c)); } };
+      const stmtsQ = [];
+      chunk(toMark, "UPDATE establishments SET delisted_at=?, updated_at=? WHERE id IN (?)", [now, now]);
+      chunk(toDelete, "DELETE FROM establishments WHERE id IN (?)");
+      for (let i = 0; i < stmtsQ.length; i += 20) await env.DB.batch(stmtsQ.slice(i, i + 20));
+      return Response.json({ ok: true, county, live: live.size, have, marked: toMark.length, deleted: toDelete.length });
     }
 
     if (url.pathname === "/set-cuisine" && req.method === "POST") {
@@ -503,13 +535,14 @@ export default {
 
     if (url.pathname === "/api/establishments") {
       const { results } = await env.DB.prepare(
-        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc
+        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at
          FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
       ).all();
       const items = (results || []).map((r) => ({
         id: r.id, co: r.county === "king" ? "k" : "s", n: r.name, a: r.address, ci: r.city, z: r.zip,
         la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
         g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at, cs: r.change_svc,
+        ...(r.delisted_at ? { dl: r.delisted_at } : {}),
       }));
       const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
       return cachePut(req, ctx, Response.json({ updated: upd?.u ?? null, count: items.length, items }, {
@@ -1077,7 +1110,7 @@ function renderList(){
     h+='<div class="item" data-id="'+esc(d.id)+'"><div class="bar" style="background:'+colorOf(d)+'"></div>'+
        '<div><div class="nm">'+esc(d.n)+'</div>'+
        '<div class="ad">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+'</div>'+
-       '<div class="mt"><b style="color:var(--ink)">'+esc(lead)+'</b> · '+(CU_LABEL[d.cu]||"Other")+'</div></div></div>';
+       '<div class="mt"><b style="color:var(--ink)">'+esc(lead)+'</b> · '+(CU_LABEL[d.cu]||"Other")+(d.dl?' · <span style="color:#6e7681;font-weight:600">Closed</span>':"")+'</div></div></div>';
   }
   if(vis.length>cap)h+='<div class="item" style="cursor:default;color:#6e7681">+ '+(vis.length-cap).toLocaleString()+' more — narrow the filters to see them</div>';
   var L2=document.getElementById("list");L2.innerHTML=h;
@@ -1119,6 +1152,7 @@ function fitPopup(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)retur
 function popupShell(d){
   var r=ratingOf(d),h='<div class="pp-name">'+esc(d.n)+'</div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
+  if(d.dl)h+='<span class="pp-badge" style="background:#6e7681;color:#fff;margin-left:6px" title="No longer listed by the county — may have closed or changed ownership">Closed</span>';
   h+='<span class="favbtn" role="button" tabindex="0" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="display:inline-block;margin:3px 0 3px 7px;font-size:11px;font-weight:600;padding:1px 9px;border-radius:999px;border:1px solid #f5b301;background:'+(isFav(d.id)?"#fbe7b3":"#fff")+';color:'+(isFav(d.id)?"#7a5c00":"#b8860b")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</span>';
   if(d.co==="k"&&d.g!=null) h+='<div class="pp-meta">Grade <b>'+d.g+'</b> ('+LABEL[d.g]+')'+(d.rs?" · "+esc(d.rs):"")+'</div>';
   if(d.s!=null) h+='<div class="pp-meta">'+(d.co==="k"?"Inspection score":"Violation points")+': <b>'+d.s+'</b> <span style="color:#999">(lower is better)</span></div>';
@@ -1141,8 +1175,9 @@ function violHtml(vs,hidePts){var s="";(vs||[]).forEach(function(x){
   var note=cleanNote(x.note);
   if(note)s+='<details class="viold"><summary>'+head+'</summary><div class="note">'+esc(note)+'</div></details>';
   else s+='<div class="viol"><div class="vh">'+head+'</div></div>';});return s;}
-function detailHtml(j,co){
+function detailHtml(j,co,dl){
   var h="",v=j.violations||[],hp=co==="s";   // hide King-substituted per-violation points for Snohomish
+  if(dl)h+='<div class="pp-meta" style="background:#f3f4f6;border-radius:6px;padding:6px 8px;margin:2px 0 6px;color:#57606a">⚠︎ No longer listed by the county (since '+fmtDate(dl)+'). It may have closed or changed ownership — the inspection history below is what we last captured.</div>';
   // both sections are collapsible; fitPopup() collapses them as needed when the card is taller than the screen
   if(v.length)h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody">'+violHtml(v.slice(0,8),hp)+(v.length>8?'<div style="font-size:11px;color:#888">+'+(v.length-8)+' more</div>':"")+'</div></details>';
   else h+='<details class="pp-sec ppsec sec-viol" open><summary>Most recent violations</summary><div class="ppbody"><div style="font-size:11.5px;color:#2a8a4a">No violations recorded ✓</div></div></details>';
@@ -1154,14 +1189,14 @@ function detailHtml(j,co){
       else h+='<div class="hist"><span>'+left+'</span><span>'+right+'</span></div>';
     });
     h+='</div></details>';}
-  if(j.report_url){var kcSearch=/kingcounty\.gov/.test(j.report_url);h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">'+(kcSearch?'Search King County ratings →':'Official report →')+'</a>';}
+  if(j.report_url&&!dl){var kcSearch=/kingcounty\.gov/.test(j.report_url);h+='<a class="pp-link" href="'+esc(j.report_url)+'" target="_blank" rel="noopener">'+(kcSearch?'Search King County ratings →':'Official report →')+'</a>';}
   return h;
 }
 function wirePopup(root,d,onLoaded){
   if(!root)return;
   var box=root.querySelector(".pp-detail");
   if(box&&!box.dataset.loaded){box.dataset.loaded="1";
-    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j,d.co);
+    fetch("/api/detail?id="+encodeURIComponent(d.id)).then(function(r){return r.json();}).then(function(j){box.innerHTML=detailHtml(j,d.co,d.dl);
       var hds=box.querySelectorAll("details.histd");hds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open){track("hist");hds.forEach(function(o){if(o!==dt)o.open=false;});}});});
       // violation expanders behave like an accordion: opening one closes the others
       var vds=box.querySelectorAll("details.viold");vds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)vds.forEach(function(o){if(o!==dt)o.open=false;});});});
@@ -1183,7 +1218,7 @@ function locListHtml(vm){
     var disc=colorOf(d), lab=(METRIC&&METRIC.disp)?METRIC.disp(d):LABEL[ratingOf(d)];
     h+='<div class="loc-row" data-i="'+i+'" style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid #eee;cursor:pointer">'
       +'<span style="width:22px;height:22px;border-radius:50%;background:'+disc+';display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">'+(CU_EMOJI[d.cu]||"🍴")+'</span>'
-      +'<span style="flex:1;min-width:0"><b style="font-size:12.5px;color:#111">'+esc(d.n)+'</b><br><span style="color:#777;font-size:11px">'+esc(lab)+' · '+(CU_LABEL[d.cu]||"Other")+'</span></span>'
+      +'<span style="flex:1;min-width:0"><b style="font-size:12.5px;color:#111">'+esc(d.n)+'</b><br><span style="color:#777;font-size:11px">'+esc(lab)+' · '+(CU_LABEL[d.cu]||"Other")+(d.dl?' · Closed':"")+'</span></span>'
       +'<span style="color:#bbb;font-size:16px">›</span></div>';});
   return h+'</div>';
 }

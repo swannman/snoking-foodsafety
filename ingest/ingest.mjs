@@ -547,5 +547,20 @@ async function main() {
   if (!INGEST_TOKEN) { console.error("No INGEST_TOKEN (env or config.json). Use --dry to test."); process.exit(1); }
   await push(recs);
   await pushBloopers(bloopers);
+  // after a FULL Snohomish crawl, reconcile delistings: any sno row not in this crawl has vanished
+  // from the county portal -> mark closed (auto-deleted after 6 months still-gone). Skip on king-only
+  // runs (partial) — the Worker also guards against a truncated crawl mass-delisting.
+  if (!KING_ONLY) await reconcileDelisted("snohomish", recs.filter((r) => r.county === "snohomish").map((r) => r.id));
+}
+async function reconcileDelisted(county, ids) {
+  try {
+    const r = await fetch(WORKER_URL + "/reconcile-delisted", { method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + INGEST_TOKEN },
+      body: JSON.stringify({ county, ids }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) console.log(`  reconcile-delisted ${county}: HTTP ${r.status}`);
+    else if (j.skipped) console.log(`  reconcile-delisted ${county}: SKIPPED (${j.reason}; live ${j.live} vs have ${j.have})`);
+    else console.log(`  reconcile-delisted ${county}: ${j.marked} marked closed, ${j.deleted} deleted (live ${j.live}/${j.have})`);
+  } catch (e) { console.log(`  reconcile-delisted ${county} failed: ${e.message}`); }
 }
 main().catch((e) => { console.error("\nFAILED:", e.stack || e.message); process.exit(1); });
