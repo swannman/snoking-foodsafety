@@ -100,6 +100,44 @@ function cachePut(req, ctx, resp) {
   return resp;
 }
 
+// ── map-payload snapshots (KV) ────────────────────────────────────────────────
+// /api/establishments and /api/points each scan all ~14k rows. Under a cold-cache burst
+// (post-deploy, post-ingest version bump, or a crawl wave) many concurrent requests hit
+// that D1 scan at once → contention → 504s. So the ingester prebuilds these payloads into
+// KV once per refresh, and the hot path serves straight from KV (no D1 scan). Bump SNAP_VER
+// whenever the item shape below changes — the new key misses, so the handler rebuilds from D1.
+const SNAP_VER = "1";
+const SNAP_EST = "snap:establishments:" + SNAP_VER, SNAP_PTS = "snap:points:" + SNAP_VER;
+async function buildEstablishments(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at
+     FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
+  ).all();
+  const items = (results || []).map((r) => ({
+    id: r.id, co: r.county === "king" ? "k" : "s", n: r.name, a: r.address, ci: r.city, z: r.zip,
+    la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
+    g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at, cs: r.change_svc,
+    ...(r.delisted_at ? { dl: r.delisted_at } : {}),
+  }));
+  const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
+  return { updated: upd?.u ?? null, count: items.length, items };
+}
+async function buildPoints(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT name,lat,lon,cuisine,rating,rating_avg,rating_avg_all,tract_id
+     FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
+  ).all();
+  const items = (results || []).map((r) => ({ n: r.name, la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, aa: r.rating_avg_all, t: r.tract_id }));
+  const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
+  return { updated: upd?.u ?? null, items };
+}
+// serve a KV snapshot; on miss, build from D1 and populate KV (self-healing first-request fallback)
+async function serveSnapshot(req, ctx, env, key, build) {
+  let body = await env.REGIONS.get(key);
+  if (!body) { body = JSON.stringify(await build(env)); if (ctx && ctx.waitUntil) ctx.waitUntil(env.REGIONS.put(key, body)); }
+  return cachePut(req, ctx, new Response(body, { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=86400" } }));
+}
+
 // apex snoking.app is just a branded splash — the actual apps live on subdomains (food., dispatch.)
 const APEX_HTML = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -511,6 +549,17 @@ export default {
       return Response.json({ ok: true, county, live: live.size, have, marked: toMark.length, deleted: toDelete.length });
     }
 
+    if (url.pathname === "/rebuild-snapshot" && req.method === "POST") {
+      // rebuild the KV map-payload snapshots from D1 (called by the ingester after each refresh,
+      // and safe to hit manually after a deploy). One D1 scan here per day instead of per request.
+      if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN)
+        return new Response("unauthorized", { status: 401 });
+      const est = await buildEstablishments(env), pts = await buildPoints(env);
+      await env.REGIONS.put(SNAP_EST, JSON.stringify(est));
+      await env.REGIONS.put(SNAP_PTS, JSON.stringify(pts));
+      return Response.json({ ok: true, establishments: est.count, points: pts.items.length, updated: est.updated, ver: SNAP_VER });
+    }
+
     if (url.pathname === "/set-cuisine" && req.method === "POST") {
       // fast cuisine-only update (recompute from name without a full re-ingest/re-crawl)
       if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN)
@@ -634,34 +683,14 @@ export default {
         { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
     }
 
-    if (url.pathname === "/api/establishments") {
-      const { results } = await env.DB.prepare(
-        `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at
-         FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
-      ).all();
-      const items = (results || []).map((r) => ({
-        id: r.id, co: r.county === "king" ? "k" : "s", n: r.name, a: r.address, ci: r.city, z: r.zip,
-        la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
-        g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at, cs: r.change_svc,
-        ...(r.delisted_at ? { dl: r.delisted_at } : {}),
-      }));
-      const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
-      return cachePut(req, ctx, Response.json({ updated: upd?.u ?? null, count: items.length, items }, {
-        headers: { "Cache-Control": "public, max-age=86400" },   // safe: client requests ?v=<updated_at>
-      }));
-    }
+    // full map payload — served from the KV snapshot (rebuilt each ingest), not a live D1 scan.
+    // Client requests ?v=<updated_at>, so edge cache fronts KV; KV fronts D1 (miss-only fallback).
+    if (url.pathname === "/api/establishments")
+      return serveSnapshot(req, ctx, env, SNAP_EST, buildEstablishments);
 
-    if (url.pathname === "/api/points") {
-      // minimal points for client-side geohash-tile aggregation on /stats (la,lo,cuisine + the
-      // three rating bases). Tiny payload; client requests ?v=<updated_at> so it caches hard.
-      const { results } = await env.DB.prepare(
-        `SELECT name,lat,lon,cuisine,rating,rating_avg,rating_avg_all,tract_id
-         FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
-      ).all();
-      const items = (results || []).map((r) => ({ n: r.name, la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, aa: r.rating_avg_all, t: r.tract_id }));
-      const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
-      return cachePut(req, ctx, Response.json({ updated: upd?.u ?? null, items }, { headers: { "Cache-Control": "public, max-age=86400" } }));
-    }
+    // minimal points for client-side geohash-tile aggregation on /stats — also from the KV snapshot
+    if (url.pathname === "/api/points")
+      return serveSnapshot(req, ctx, env, SNAP_PTS, buildPoints);
 
     if (url.pathname === "/api/detail") {
       const id = url.searchParams.get("id");

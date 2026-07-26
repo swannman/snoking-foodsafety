@@ -551,6 +551,16 @@ async function main() {
   // from the county portal -> mark closed (auto-deleted after 6 months still-gone). Skip on king-only
   // runs (partial) — the Worker also guards against a truncated crawl mass-delisting.
   if (!KING_ONLY) await reconcileDelisted("snohomish", recs.filter((r) => r.county === "snohomish").map((r) => r.id));
+  await rebuildSnapshot();   // refresh the KV map-payload snapshots so /api/establishments never scans D1 on the hot path
+}
+async function rebuildSnapshot() {
+  try {
+    const r = await fetch(WORKER_URL + "/rebuild-snapshot", { method: "POST",
+      headers: { "Authorization": "Bearer " + INGEST_TOKEN } });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) console.log(`  rebuild-snapshot: ${j.establishments} establishments, ${j.points} points (v${j.ver})`);
+    else console.log(`  rebuild-snapshot: HTTP ${r.status}`);
+  } catch (e) { console.log(`  rebuild-snapshot failed: ${e.message}`); }
 }
 async function reconcileDelisted(county, ids) {
   try {
