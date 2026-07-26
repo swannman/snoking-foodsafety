@@ -172,7 +172,7 @@ function restaurantHtml(r) {
   .muted{color:#8b949e;font-size:13px}
 </style></head>
 <body><div class="wrap">
-  <p class="muted"><a href="https://food.snoking.app/">← Sno/King Food Safety map</a></p>
+  <p class="muted"><a href="/">Map</a> · <a href="/browse">Browse</a> · <a href="/browse/${r.county}/${slugify(r.city || "")}">${hesc(cityC)}</a></p>
   <h1>${hesc(r.name)}</h1>
   <div class="addr">${hesc(addr)} · ${county}</div>
   <p><span class="badge" style="background:${color}">${label}</span></p>
@@ -181,6 +181,45 @@ function restaurantHtml(r) {
   ${recent ? `<h2>Most recent violations</h2><ul>${recent}</ul>` : ""}
   ${hist ? `<h2>Inspection history</h2><table><tr><th>Date</th><th>Result</th><th>Points</th></tr>${hist}</table>` : ""}
   <p class="muted">Ratings are derived from public ${county} health-department inspection records. For authoritative information, use the official report linked above.</p>
+</div></body></html>`;
+}
+
+// ── browsable HTML directory (county → city → restaurant) ─────────────────────
+// Crawlable internal links into every /r/ page. Fixes Search Console "Discovered –
+// currently not indexed": the restaurant pages were orphaned (reachable only via the
+// sitemap), so Google deprioritized crawling them. These directory pages give Googlebot
+// real crawl paths and flow link-equity from the homepage down to the leaf pages.
+const CO_NAME = { king: "King County", snohomish: "Snohomish County" };
+function browseShell(title, desc, path, body) {
+  const canonical = "https://food.snoking.app" + path;
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${hesc(title)}</title>
+<meta name="description" content="${hesc(desc)}">
+<link rel="canonical" href="${canonical}">
+<link rel="icon" type="image/png" href="/icon-192.png?v=7">
+<meta name="theme-color" content="#0d1117">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Sno/King Food Safety">
+<meta property="og:title" content="${hesc(title)}"><meta property="og:description" content="${hesc(desc)}">
+<meta property="og:url" content="${canonical}"><meta property="og:image" content="https://food.snoking.app/snoking.jpg">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0d1117;color:#e6edf3;font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:24px 20px 64px}
+  a{color:#58a6ff;text-decoration:none} a:hover{text-decoration:underline}
+  h1{font-size:25px;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:17px;margin:24px 0 8px}
+  .crumb,.muted{color:#8b949e;font-size:13px}
+  .crumb{margin-bottom:14px}
+  ul.cols{columns:2;column-gap:26px;padding-left:18px;margin:6px 0}
+  @media(min-width:660px){ul.cols{columns:3}}
+  li{margin:2px 0;break-inside:avoid}
+  .cnt{color:#8b949e;font-size:12px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle}
+</style></head>
+<body><div class="wrap">${body}
+  <p class="muted" style="margin-top:34px">Ratings are derived from public King &amp; Snohomish County health-department inspection records. <a href="/">Open the map →</a></p>
 </div></body></html>`;
 }
 
@@ -200,13 +239,75 @@ export default {
       if (!row) return new Response("Restaurant not found", { status: 404, headers: { "Content-Type": "text/plain" } });
       return new Response(restaurantHtml(row), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
     }
+
+    // browse index: every city in both counties, linked (crawl path into the /r/ leaf pages)
+    if (url.pathname === "/browse" || url.pathname === "/browse/") {
+      const hit = await caches.default.match(req).catch(() => null); if (hit) return hit;
+      const { results } = await env.DB.prepare(
+        "SELECT county, city, COUNT(*) AS n FROM establishments WHERE city IS NOT NULL AND city != '' GROUP BY county, city"
+      ).all();
+      const byCo = { king: [], snohomish: [] };
+      for (const r of results || []) if (byCo[r.county]) byCo[r.county].push(r);
+      for (const k in byCo) byCo[k].sort((a, b) => titleCase(a.city).localeCompare(titleCase(b.city)));
+      let body = `<h1>Browse restaurants by city</h1>
+        <p class="muted">Every restaurant in King &amp; Snohomish County, WA, grouped by city. Tap a city for its food-safety inspection ratings, history, and violations.</p>`;
+      for (const co of ["king", "snohomish"]) {
+        if (!byCo[co].length) continue;
+        body += `<h2>${CO_NAME[co]}</h2><ul class="cols">`;
+        for (const r of byCo[co]) body += `<li><a href="/browse/${co}/${slugify(r.city)}">${hesc(titleCase(r.city))}</a> <span class="cnt">${r.n}</span></li>`;
+        body += `</ul>`;
+      }
+      const html = browseShell("Browse Restaurants by City — Sno/King Food Safety",
+        "Browse every restaurant in King & Snohomish County, WA by city. Food-safety inspection ratings, history, and violations for each place.",
+        "/browse", body);
+      const resp = new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
+      if (ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(req, resp.clone()));
+      return resp;
+    }
+    // browse a single city: /browse/<county>/<city-slug> — plain links to every restaurant there
+    if (url.pathname.startsWith("/browse/")) {
+      const parts = url.pathname.slice(8).split("/").filter(Boolean);
+      const co = parts[0], citySlug = parts[1];
+      if (!CO_NAME[co] || !citySlug) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+      const hit = await caches.default.match(req).catch(() => null); if (hit) return hit;
+      const { results: cities } = await env.DB.prepare(
+        "SELECT DISTINCT city FROM establishments WHERE county = ? AND city IS NOT NULL AND city != ''").bind(co).all();
+      const matches = (cities || []).map((c) => c.city).filter((c) => slugify(c) === citySlug);
+      if (!matches.length) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+      const ph = matches.map(() => "?").join(",");
+      const { results } = await env.DB.prepare(
+        `SELECT id, name, city, rating FROM establishments WHERE county = ? AND city IN (${ph}) ORDER BY name`
+      ).bind(co, ...matches).all();
+      const cityC = titleCase(matches[0]);
+      let body = `<div class="crumb"><a href="/browse">Browse</a> › ${CO_NAME[co]} › ${hesc(cityC)}</div>
+        <h1>Restaurants in ${hesc(cityC)}, WA</h1>
+        <p class="muted">${(results || []).length} restaurants in ${hesc(cityC)} — ${CO_NAME[co]} food-safety inspection ratings.</p>
+        <ul class="cols">`;
+      for (const r of results || []) body += `<li><span class="dot" style="background:${COL[r.rating || 0]}"></span><a href="${restPath(r)}">${hesc(titleCase(r.name))}</a></li>`;
+      body += `</ul>`;
+      const html = browseShell(`Restaurants in ${cityC}, WA — Food Safety Ratings | Sno/King`,
+        `Food-safety inspection ratings for every restaurant in ${cityC}, WA (${CO_NAME[co]}). Ratings, inspection history, and violations.`,
+        `/browse/${co}/${citySlug}`, body);
+      const resp = new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
+      if (ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(req, resp.clone()));
+      return resp;
+    }
+
     // sitemap of every restaurant page (cached hard — one full scan per day per colo)
     if (url.pathname === "/sitemap.xml") {
       const hit = await caches.default.match(req).catch(() => null); if (hit) return hit;
-      const { results } = await env.DB.prepare("SELECT id,name,city FROM establishments").all();
+      const { results } = await env.DB.prepare("SELECT id,name,city,county,updated_at FROM establishments").all();
       let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
-      for (const p of ["", "about", "stats", "bloopers"]) xml += `<url><loc>https://food.snoking.app/${p}</loc></url>`;
-      for (const r of results || []) xml += `<url><loc>https://food.snoking.app${restPath(r)}</loc></url>`;
+      for (const p of ["", "about", "stats", "bloopers", "browse"]) xml += `<url><loc>https://food.snoking.app/${p}</loc></url>`;
+      // browse-by-city pages (crawl paths into the leaf pages)
+      const cityset = new Set();
+      for (const r of results || []) if (r.city) cityset.add(r.county + "/" + slugify(r.city));
+      for (const c of cityset) xml += `<url><loc>https://food.snoking.app/browse/${c}</loc></url>`;
+      // per-restaurant pages, with lastmod so Google can prioritize freshly-updated records
+      for (const r of results || []) {
+        const lm = (r.updated_at || "").slice(0, 10);
+        xml += `<url><loc>https://food.snoking.app${restPath(r)}</loc>${lm ? `<lastmod>${lm}</lastmod>` : ""}</url>`;
+      }
       xml += `</urlset>`;
       const resp = new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
       if (ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(req, resp.clone()));
@@ -667,7 +768,10 @@ const MAP_HTML = String.raw`<!doctype html>
   @media(min-width:721px){h1 .tog{display:none}}   /* panel is always open on desktop — no toggle needed */
   h1 .tog b{font-size:16px;line-height:1;transition:transform .15s;display:inline-block}
   #feed:not(.collapsed) h1 .tog b{transform:rotate(180deg)}
-  #feed.collapsed #controls,#feed.collapsed #listhead,#feed.collapsed #list{display:none}
+  #feed.collapsed #controls,#feed.collapsed #listhead,#feed.collapsed #list,#feed.collapsed #feedfoot{display:none}
+  #feedfoot{padding:9px 16px;border-top:1px solid var(--line);font-size:12px;flex:none}
+  #feedfoot a{color:var(--muted);text-decoration:none}
+  #feedfoot a:hover{text-decoration:underline}
   #feed.collapsed{height:auto;min-height:0}
   .sub{color:var(--muted);font-size:11.5px;margin:3px 0 0}
   #controls{padding:10px 16px 24px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
@@ -796,6 +900,7 @@ const MAP_HTML = String.raw`<!doctype html>
     </div>
     <div id="listhead"><span id="count">…</span><span><span id="upd"></span> · <span id="sortdir" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" title="Click to change sort">A–Z</span></span></div>
     <div id="list"></div>
+    <div id="feedfoot"><a href="/browse">Browse all restaurants by city →</a></div>
   </div>
   <div id="map"></div>
   <div id="legend"></div>
