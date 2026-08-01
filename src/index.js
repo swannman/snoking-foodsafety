@@ -1049,7 +1049,10 @@ var layer=L.layerGroup().addTo(map);
 var emojiLayer=L.layerGroup(), emojiMode=true, EMOJI_ZOOM=15, lastVis=[], popupOpen=false;
 
 var ALL=[], LOC=[], MARK=[], maxAge=20, WPMAX=150;   // LOC = establishments clustered by ~proximity
-var fCuisine="", coOn={k:1,s:1}, query="";
+var fCuisine="", coOn={k:1,s:1}, query="", queryToks=[];
+// search is token-based (all tokens must match anywhere) so a pasted full address like
+// "18437 E Valley Hwy, Kent, WA 98032" works — commas/state/zip don't need to be contiguous
+function setQuery(v){query=(v||"").toLowerCase().trim();queryToks=query?query.split(/[^a-z0-9]+/).filter(Boolean):[];}
 // the rating-style range filter follows the "shade by" dropdown: METRIC is the active metric
 // config (value accessor + min/max/step/label/format), fRange is its current [lo,hi]. Cuisine
 // mode has no numeric metric (METRIC=null) so the slider is hidden. MET is built after load
@@ -1131,7 +1134,7 @@ function restoreView(rv){
   if(rv.cu!=null){var sel=document.getElementById("cuisine");sel.value=rv.cu;
     if(rv.cu==="__fav"){favOnly=true;fCuisine="";}else{favOnly=false;fCuisine=rv.cu;}}
   if(rv.sm)sortMode=rv.sm;
-  if(rv.q){query=rv.q;var qi=document.getElementById("q");if(qi)qi.value=rv.q;}
+  if(rv.q){setQuery(rv.q);var qi=document.getElementById("q");if(qi)qi.value=rv.q;}
   updateSortLabel();
   if(rv.la!=null&&rv.lo!=null&&rv.z!=null)map.setView([rv.la,rv.lo],rv.z);
   recolor();
@@ -1189,7 +1192,8 @@ function passes(d){
       else if(v<fRange[0]||v>fRange[1]) return false;
     }
   }
-  if(query){var h=(d.n+" "+(d.a||"")+" "+(d.ci||"")).toLowerCase();if(h.indexOf(query)<0)return false;}
+  if(queryToks.length){var h=(d.n+" "+(d.a||"")+" "+(d.ci||"")+" "+(d.z||"")+" wa").toLowerCase();
+    for(var qk=0;qk<queryToks.length;qk++)if(h.indexOf(queryToks[qk])<0)return false;}
   return true;
 }
 function render(){
@@ -1414,7 +1418,7 @@ fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();})
       ["ref","utm_source","utm_campaign","utm_medium","utm_content","utm_term"].forEach(function(k){qp0.delete(k);});   // strip so a reload/bookmark doesn't recount (keeps ?focus= etc.)
       var qs=qp0.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash);}}catch(e){}
 });
-var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){query=v;render();fitSearch();},180);};
+var qt;document.getElementById("q").oninput=function(e){clearTimeout(qt);var v=e.target.value.toLowerCase();qt=setTimeout(function(){setQuery(v);render();fitSearch();},180);};
 // a search filters dots in place but the matches may be off-screen (and the list is viewport-only),
 // so a place looks "missing". When a specific search's matches are all off-screen, pan/zoom to them.
 function fitSearch(){
@@ -1432,7 +1436,7 @@ function fitSearch(){
 (function(){var q=document.getElementById("q"),qc=document.getElementById("qclear");
   q.addEventListener("blur",function(){if(q.value){qc.style.display="block";q.classList.add("hasclear");track("search");}});
   q.addEventListener("focus",function(){qc.style.display="none";q.classList.remove("hasclear");});
-  qc.addEventListener("click",function(){clearTimeout(qt);q.value="";query="";render();q.focus();});})();
+  qc.addEventListener("click",function(){clearTimeout(qt);q.value="";setQuery("");render();q.focus();});})();
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
 // time-based metrics ("recently changed", "years in operation") read newest/oldest; every other metric reads worst/best
 function sortLabel(){if(sortMode==="alpha")return "A–Z";if(colorMode==="changed")return sortMode==="worst"?"newest first":"oldest first";if(colorMode==="age")return sortMode==="worst"?"oldest first":"newest first";return sortMode==="worst"?"worst first":"best first";}
