@@ -879,6 +879,10 @@ const MAP_HTML = String.raw`<!doctype html>
   .histv{padding:3px 0 6px 0}
   .pp-link{display:inline-block;margin-top:7px;font-size:11.5px;color:#0969da;text-decoration:none;font-weight:600}
   .loading{color:#999;font-size:11.5px}
+  /* OSM credit — required on the map itself. Tinted to match the dark chrome instead of Leaflet's white. */
+  .leaflet-control-attribution{background:rgba(13,17,23,.74);color:#8b949e;font-size:10.5px;line-height:1.5;padding:1px 7px;border-radius:5px 0 0 0;box-shadow:none}
+  .leaflet-control-attribution a{color:#9fb6d0;text-decoration:none}
+  .leaflet-control-attribution a:hover,.leaflet-control-attribution a:focus{color:#c9d9ea;text-decoration:underline}
   @media (max-width:720px){
     #wrap{display:block;position:relative}
     #map{position:absolute;inset:0;height:100%;width:100%}
@@ -887,15 +891,11 @@ const MAP_HTML = String.raw`<!doctype html>
     #feed{position:absolute;top:0;left:0;right:0;z-index:1000;width:auto;min-width:0;max-height:100dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-right:0;border-bottom:1px solid var(--line);box-shadow:0 10px 28px rgba(0,0,0,.45)}
     #feed.collapsed{max-height:none;overflow:visible;box-shadow:none}
     #list{flex:none}
-    #legend{left:14px;bottom:14px;z-index:500}
-    /* move zoom buttons clear of the header overlay (top) and legend (bottom-left) */
-    .leaflet-top.leaflet-left{top:auto;left:auto;bottom:12px;right:12px}
-    /* when the filter panel is open it covers the map, so hide the zoom buttons hovering over it */
-    #feed:not(.collapsed) ~ #map .leaflet-control-zoom{display:none}
+    /* sit the legend above the attribution strip so neither covers the other */
+    #legend{left:14px;bottom:26px;z-index:500}
   }
-  /* while a restaurant card is open, hide the legend + (on phones) the zoom buttons so they don't cover it */
+  /* while a restaurant card is open, hide the legend so it doesn't cover it */
   body.popup-open #legend{display:none}
-  @media (max-width:720px){body.popup-open .leaflet-control-zoom{display:none}}
 </style></head><body>
 <div id="wrap">
   <div id="feed">
@@ -1037,8 +1037,11 @@ function fmtDate(s){if(!s)return"";var d=new Date(s);return isNaN(d)?s:d.toLocal
 
 // start collapsed on small screens so the map gets the whole viewport (tap "Filters" to open)
 if(window.matchMedia("(max-width:720px)").matches) document.getElementById("feed").classList.add("collapsed");
-var map=L.map("map",{preferCanvas:true,attributionControl:false}).setView([47.7,-122.1],10);   // credits live on /about
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+// no +/- buttons (scroll wheel / pinch / double-tap / keyboard +- still zoom). OSM's attribution
+// guidelines require the credit on the map itself, so the attribution control stays on.
+var map=L.map("map",{preferCanvas:true,zoomControl:false}).setView([47.7,-122.1],10);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}).addTo(map);
+map.attributionControl.setPrefix("");   // drop the "Leaflet" flag — not required, and space is tight on phones
 var canvas=L.canvas({padding:.5});
 // enlarge the hit target for the small canvas dots so a near-miss still registers. On TOUCH we pad
 // generously (fat fingers); with a MOUSE we keep it tight, because a fat pad makes a neighbouring
@@ -1610,8 +1613,6 @@ const STATS_HTML = String.raw`<!doctype html>
     #map{position:absolute;inset:0;height:100%;width:100%}
     #panel{position:absolute;top:0;left:0;right:0;z-index:1000;width:auto;min-width:0;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-right:0;border-bottom:1px solid var(--line);box-shadow:0 10px 28px rgba(0,0,0,.45)}
     #panel.collapsed{max-height:none;overflow:visible;box-shadow:none}
-    /* keep the zoom buttons clear of the panel overlay */
-    .leaflet-top.leaflet-left{top:auto;left:auto;bottom:12px;right:12px}
   }
 </style></head><body>
 <div id="wrap">
@@ -1679,8 +1680,10 @@ function geohashCell(lat,lon,prec){var latR=[-90,90],lonR=[-180,180],hash="",bit
 function ghPrec(z){return z<=8?4:z<=10?5:z<=12?6:z<=14?7:8;}   // finer tiles as you zoom in
 function pRating(p){var b=q("basis").value;return b==="last"?p.r:(b==="all"?(p.aa!=null?p.aa:p.r):(p.ra!=null?p.ra:p.r));}
 
-var map=L.map("map",{preferCanvas:true,attributionControl:false}).setView([47.75,-122.1],9);   // credits live on /about
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",{maxZoom:18,subdomains:"abcd"}).addTo(map);
+// see the main map: no +/- buttons, but the OSM/CARTO credit stays on the map as the licenses require
+var map=L.map("map",{preferCanvas:true,zoomControl:false}).setView([47.75,-122.1],9);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",{maxZoom:18,subdomains:"abcd",attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'}).addTo(map);
+map.attributionControl.setPrefix("");
 var regions=null, statByRegion={}, gl=null, breaks=[], fitted=false;
 
 (function(){var s=q("cuisine");CU_ORDER.forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=CU_LABEL[k]||k;s.appendChild(o);});})();
