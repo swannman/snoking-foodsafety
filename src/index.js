@@ -848,6 +848,10 @@ const MAP_HTML = String.raw`<!doctype html>
   .item .mt{color:#6e7681;font-size:11px;margin-top:2px}
   .leaflet-popup-content{font:12.5px system-ui;margin:11px 13px;width:280px!important}
   .pp-name{font-weight:700;font-size:14px;margin-bottom:2px;color:#111}
+  .pp-name a{color:#111;text-decoration:none}
+  .pp-name a:hover,.pp-name a:focus{color:#0969da;text-decoration:underline}
+  .pp-name a:hover .exti,.pp-name a:focus .exti{opacity:1}
+  .exti{margin-left:4px;vertical-align:1px;color:#0969da;opacity:.75}
   .pp-badge{display:inline-block;color:#fff;font-weight:600;font-size:11px;padding:2px 8px;border-radius:999px;margin:3px 0;vertical-align:middle}
   .pp-addr{color:#555;font-size:12px}
   .pp-meta{color:#333;font-size:12px;margin-top:4px}
@@ -1290,8 +1294,36 @@ function fitPopup(pop){var el=pop&&pop.getElement&&pop.getElement();if(!el)retur
   if(viol&&card.getBoundingClientRect().height>avail)viol.open=false;}  // still too tall -> collapse violations too
 
 // ── popups (lazy detail) ──────────────────────────────────────────────────────
+// Google Maps URLs API — name + address as a search query resolves to the business listing without
+// needing a Place ID (so no Places lookup, no key, no quota). encodeURIComponent makes it href-safe.
+// The permit name often carries franchise bookkeeping that Google can't match: a store number
+// ("SUBWAY #10509" finds nothing, "SUBWAY" + the address lands on the listing) or a licensee-DBA
+// prefix ("JASHN 1 LLC DBA FITOOR" — the public name is what follows DBA). Strip both. The 3-digit
+// floor keeps genuine names intact: "PHO #1" / "TERIYAKI #2" are what the place is actually called.
+function gmapName(n){
+  var s=String(n||"");
+  if(/\bDBA\b/i.test(s)) s=s.split(/\bDBA\b/i).pop();
+  s=s.replace(/#\s*\d{3,}\b/g,"").replace(/\s{2,}/g," ").replace(/^[\s,\-]+|[\s,\-]+$/g,"");
+  return s||String(n||"");
+}
+// Same idea for the address: the suite/unit tail is permit bookkeeping and is often mangled
+// ("13619 MUKILTEO SPEEDWAY D6 STE" is "STE D6" inverted), which is enough to miss the listing.
+// The street address alone matches fine, so keep everything before the first comma and drop a
+// trailing unit designator in either word order.
+function gmapAddr(a){
+  var s=String(a||"").split(",")[0]
+    // inverted form first ("D6 STE"): the plain form would otherwise eat only the trailing "STE"
+    .replace(/\s+[\w-]{1,5}\s+(?:STE|SUITE|UNIT|BLDG|APT|RM|SPC)\b\.?$/i,"")
+    .replace(/\s+(?:STE|SUITE|UNIT|BLDG|APT|RM|SPC)\b\.?\s*[\w-]*$/i,"")
+    .replace(/\s+#\s*[\w-]+$/,"")
+    .trim();
+  return s||String(a||"");
+}
+function gmapUrl(d){
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent([gmapName(d.n),gmapAddr(d.a),d.ci,"WA",d.z].filter(Boolean).join(", "));
+}
 function popupShell(d){
-  var r=ratingOf(d),h='<div class="pp-name">'+esc(d.n)+'</div>';
+  var r=ratingOf(d),h='<div class="pp-name"><a class="pp-gmap" href="'+gmapUrl(d)+'" target="_blank" rel="noopener" title="Look up &quot;'+esc(d.n)+'&quot; on Google Maps">'+esc(d.n)+'<svg class="exti" viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6M20 4l-8.5 8.5M18 13.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5.5"/></svg></a></div>';
   h+='<span class="pp-badge" style="background:'+COLOR[r]+(r===2?";color:#1a1a00":"")+'">'+LABEL[r]+'</span>';
   if(d.dl)h+='<span class="pp-badge" style="background:#6e7681;color:#fff;margin-left:6px" title="No longer listed by the county — may have closed or changed ownership">Closed</span>';
   h+='<span class="favbtn" role="button" tabindex="0" data-fav="'+esc(d.id)+'" title="Save & get alerts when this rating changes" style="display:inline-block;margin:3px 0 3px 7px;font-size:11px;font-weight:600;padding:1px 9px;border-radius:999px;border:1px solid #f5b301;background:'+(isFav(d.id)?"#fbe7b3":"#fff")+';color:'+(isFav(d.id)?"#7a5c00":"#b8860b")+';cursor:pointer;vertical-align:middle">'+(isFav(d.id)?"★ Saved":"☆ Save")+'</span>';
@@ -1343,6 +1375,9 @@ function wirePopup(root,d,onLoaded){
       var vds=box.querySelectorAll("details.viold");vds.forEach(function(dt){dt.addEventListener("toggle",function(){if(this.open)vds.forEach(function(o){if(o!==dt)o.open=false;});});});
       if(onLoaded)onLoaded();}).catch(function(){box.innerHTML="";if(onLoaded)onLoaded();});}
   else if(onLoaded)onLoaded();
+  // let the navigation proceed (target=_blank); just stop the click reaching the map and log the tap
+  var gm=root.querySelector(".pp-gmap");
+  if(gm)gm.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();track("gmap",d.co,CU_LABEL[d.cu]||"Other",d.n);};
   var fb=root.querySelector(".favbtn");
   if(fb)fb.onclick=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var on=toggleFav(d.id,d);fb.textContent=on?"★ Saved":"☆ Save";fb.style.background=on?"#fbe7b3":"#fff";fb.style.color=on?"#7a5c00":"#b8860b";};
 }
