@@ -111,6 +111,7 @@ displayed — the ratings are current even when the name isn't.
 | `ingest/ingest.mjs` | Pulls both counties, merges, geocodes, scores, POSTs |
 | `ingest/king-rubric.mjs` | The shared WA-item rubric that lets Snohomish be scored King-style |
 | `ingest/cuisine.mjs` | Name → cuisine classifier (with curated overrides in `*_reclass.json`) |
+| `ingest/snapshot-cuisine.mjs` | Writes + reads `cuisine_snapshot.json`, the disaster-recovery copy of the curated cuisines |
 | `ingest/bloopers.mjs` | Picks + redacts the blooper-worthy violations |
 | `ingest/regions.mjs` | Census-tract tagging |
 | `public/` | Static assets served straight from the edge (never invoke the Worker) |
@@ -155,6 +156,34 @@ on a schedule. Two GitHub Actions handle that:
   IndexNow.
 - **`deploy.yml`** — deploys the Worker on push to `main` touching `src/**` or
   `wrangler.toml`.
+
+### Rebuilding after losing D1
+
+Almost everything is re-derivable from the counties on the next run. The one thing
+that isn't is the ~3,300 hand-corrected cuisine classifications — the ones the
+keyword classifier gets wrong and a human fixed. For King those were only ever kept
+alive by each run harvesting the *previous* run's live API, which is a loop with no
+file at the bottom of it. (The id-keyed `*_reclass.json` overrides don't cover it:
+King's ids migrated from Socrata `king:PR0083278` to ArcGIS `king:PFE-PR-3134122`,
+so those files silently stopped matching.)
+
+`ingest/cuisine_snapshot.json` is the copy that survives. It's keyed by **name +
+address**, not by id — the same join the harvest uses, and the one that survived the
+id migration that an id-keyed file did not. Only entries that *differ* from
+`cuisineOf(name)` are stored, since the rest is reproducible from code. The ingester
+consults it only when the live carry-forward misses, so a normal run is unaffected;
+on a cold rebuild it's the difference between restoring the curation and quietly
+falling back to "Other".
+
+```sh
+cd ingest
+node snapshot-cuisine.mjs --dry   # report what would change against the live site
+node snapshot-cuisine.mjs         # rewrite cuisine_snapshot.json, then commit it
+```
+
+Worth re-running (and committing) after any batch of cuisine re-classification. It
+refuses to write from a payload under 5,000 establishments and warns if it would drop
+more than 10% of the existing entries, so a half-built site can't erase the file.
 
 ## Caveats
 

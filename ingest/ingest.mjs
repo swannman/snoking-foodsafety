@@ -16,6 +16,10 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { cuisineOf } from "./cuisine.mjs";
+// Curated cuisines cuisine.mjs can't derive from the name. Only consulted when the live-data
+// carry-forward misses — normally never, but on a cold rebuild against an empty D1 it's the
+// difference between restoring ~3,300 hand-classifications and silently falling back to "Other".
+import { snapCuisine } from "./snapshot-cuisine.mjs";
 import { blooperTag, blooperText, redactName } from "./bloopers.mjs";
 import { loadTagger } from "./regions.mjs";
 import { buildKingRubric, ratingKingStyle, tagViols, riskN } from "./king-rubric.mjs";
@@ -209,7 +213,9 @@ async function king() {
     const eplFirst = ins.length ? dstr(ins[0].Inspection_Date) : null;
     let first_date = eplFirst;
     if (h && h.fd && (!first_date || h.fd < first_date)) first_date = h.fd;
-    const cuisine = (h && h.cu) ? h.cu : cuisineOf(b.Business_Name);
+    // live carry-forward first (it reflects any curation newer than the snapshot), then the
+    // snapshot, then the classifier
+    const cuisine = (h && h.cu) || snapCuisine(b.Business_Name, b.Business_Address) || cuisineOf(b.Business_Name);
     out.push({
       id: "king:" + recId, county: "king", name: (b.Business_Name || "").trim(), address: (b.Business_Address || "").trim(),
       city: (b.Business_City || "").trim(), zip: String(b.Business_Location_Zip || "").trim(), lat, lon,
@@ -402,7 +408,10 @@ async function snohomish() {
     recs.push({
       id: "sno:" + f.FacilityId, county: "snohomish", name: (f.FacilityName || "").trim(),
       address: (f.Address || "").replace(/\s+/g, " ").trim(), city, zip, lat: null, lon: null,
-      cuisine: cuisineOf(f.FacilityName), rating, grade: null, score,
+      // Snohomish has no live carry-forward — the id-keyed *_reclass.json overrides still resolve
+      // and are applied later in main(), so this snapshot lookup only fills what they don't cover.
+      cuisine: snapCuisine(f.FacilityName, (f.Address || "").replace(/\s+/g, " ").trim()) || cuisineOf(f.FacilityName),
+      rating, grade: null, score,
       // Snohomish rating tracks the latest ROUTINE (reinspections never move it), so this is ~always "routine"
       rating_svc: classifySvc(latest ? latest.service : null),
       result: null, inspect_date: latest ? dstr(latest.activity_date) : null, first_date: firstDate,
