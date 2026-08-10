@@ -109,6 +109,7 @@ displayed — the ratings are current even when the name isn't.
 | `src/webpush.js` | VAPID signing / Web Push delivery |
 | `schema.sql` | D1: `establishments`, `bloopers`, `push_subs`, `push_favorites` |
 | `ingest/ingest.mjs` | Pulls both counties, merges, geocodes, scores, POSTs |
+| `ingest/README.md` | Per-file guide to the ingest directory — what each tool does, what reads it, what needs credentials |
 | `ingest/king-rubric.mjs` | The shared WA-item rubric that lets Snohomish be scored King-style |
 | `ingest/cuisine.mjs` | Name → cuisine classifier (with curated overrides in `*_reclass.json`) |
 | `ingest/snapshot-cuisine.mjs` | Writes + reads `cuisine_snapshot.json`, the disaster-recovery copy of the curated cuisines |
