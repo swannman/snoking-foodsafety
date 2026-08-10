@@ -553,11 +553,15 @@ async function main() {
   let recs = [], bloopers = [], kingAbsorbed = null, kingStillOpen = null;
   if (!SNO_ONLY) { console.log("King County…"); const k = await king(); kingAbsorbed = k._absorbed || {}; kingStillOpen = k._stillOpen || []; recs.push(...k); }
   if (!KING_ONLY) { console.log("Snohomish County…"); const sno = await snohomish(); bloopers = sno._bloopers || []; recs.push(...sno); }
-  // apply cuisine overrides that the name-classifier can't produce: agent-curated business/
-  // institutional cafeterias (Aerojet, Boeing, Microsoft cafés…) + Google Places cuisine types.
-  // Keeps them across re-ingests.
+  // apply cuisine overrides that the name-classifier can't produce: Google Places cuisine types
+  // (places*.mjs) + agent-curated business/institutional cafeterias. Keeps them across re-ingests.
+  //
+  // Keyed by id, which only holds as long as the id does — King's move from Socrata to ArcGIS ids
+  // silently zeroed out every King row written before it, and those rows (no name/address stored)
+  // couldn't be re-keyed, only dropped. cuisine_snapshot.json is the name+address-keyed backstop
+  // that doesn't have this failure mode; see snapshot-cuisine.mjs.
   const ovMap = {};
-  for (const f of ["other_reclass.json", "places_reclass.json", "places_reclass2.json"]) {
+  for (const f of ["places_reclass.json", "places_reclass2.json"]) {
     try { JSON.parse(readFileSync(join(HERE, f), "utf8")).forEach((r) => (ovMap[r.id] = r.cuisine)); } catch {}
   }
   let nov = 0; for (const r of recs) if (ovMap[r.id]) { r.cuisine = ovMap[r.id]; nov++; }
