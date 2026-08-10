@@ -30,6 +30,9 @@ const loadKingRubric = () => { try { return JSON.parse(readFileSync(KMAP_PATH, "
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const DRY = has("--dry"), KING_ONLY = has("--king-only"), SNO_ONLY = has("--sno-only"), NO_GEOCODE = has("--no-geocode");
+// --reconcile-dry: push data normally, but have /reconcile-delisted only REPORT what it would
+// delist/delete instead of doing it. For eyeballing a reconciler change before it removes rows.
+const RECONCILE_DRY = has("--reconcile-dry");
 const LIMIT = (() => { const a = args.find((x) => x.startsWith("--limit=")); return a ? parseInt(a.slice(8), 10) : 0; })();
 
 function cfg(k, d) {
@@ -161,9 +164,19 @@ async function king() {
   for (const v of viols) { const k = v.Inspection_Serial_Num; (violBy.get(k) || violBy.set(k, []).get(k)).push(v); }
 
   const out = [];
+  // Every `continue` below drops a business King is still publishing. If that business is already
+  // stored, the reconciler would see it "missing" and badge it Closed — a claim we can't back when
+  // the county still lists it as operating. So record the ones King calls open and let the
+  // reconciler leave them alone. `Expired` is deliberately NOT an open status: a lapsed permit with
+  // no inspection in ~18 months (the rule just below) is the one drop that really does signal a
+  // closure, and those should keep going through the delist clock.
+  const OPEN_STATUS = new Set(["Active", "Off Season", "Fees Due", "Change of Permit in Progr"]);
+  const stillOpen = new Set();
   for (const b of biz) {
+    const status = (b.Business_Status || "").trim();
+    const keepOpen = () => { if (OPEN_STATUS.has(status)) stillOpen.add("king:" + b.Business_Record_ID); };
     const lat = b._lat, lon = b._lon;
-    if (!isFinite(lat) || !isFinite(lon)) continue;
+    if (!isFinite(lat) || !isFinite(lon)) { keepOpen(); continue; }
     const recId = b.Business_Record_ID;
     const ins = (inspBy.get(recId) || []).slice().sort((x, y) => String(x.Inspection_Date || "").localeCompare(String(y.Inspection_Date || "")));   // ascending
     const mh = ins.slice(-8).reverse().map((x) => ({
@@ -176,9 +189,9 @@ async function king() {
       label: x.Inspection_Result || null, svc: x.Inspection_Type || null, v: kviol(x.Inspection_Serial_Num) }));
     const latest = ins.length ? ins[ins.length - 1] : null;
     // non-Active permit: only keep if inspected within ~18 months (clearly still operating)
-    if ((b.Business_Status || "").trim() !== "Active") {
+    if (status !== "Active") {
       const ld = latest ? dstr(latest.Inspection_Date) : null;
-      if (!ld || ld < RECENT_CUT) continue;
+      if (!ld || ld < RECENT_CUT) { keepOpen(); continue; }
     }
     const latestScore = latest && latest.Inspection_Score != null ? +latest.Inspection_Score : null;
     // King grades only restaurant-type establishments; schools/institutions are ungraded ->
@@ -188,7 +201,7 @@ async function king() {
     // ungraded establishments (schools/institutions): score them King-style too, so the whole map grades alike
     const ksRating = grade == null ? ratingKingStyle(history, rubric) : null;
     const rating = grade != null ? grade : (ksRating ?? pointRating(latestScore) ?? (ravg != null ? Math.round(ravg) : null));
-    if (rating == null) continue;   // registered but never inspected & ungraded — no rating data, skip (old feed never listed these)
+    if (rating == null) { keepOpen(); continue; }   // registered but never inspected & ungraded — no rating data, skip (old feed never listed these)
     const latestViol = latest ? kviol(latest.Inspection_Serial_Num) : [];
     // preserve prior cuisine + deeper age: match harvested live data by name+address, else street number
     const h = exact.get(knorm(b.Business_Name) + "|" + knorm(b.Business_Address)) ||
@@ -213,12 +226,14 @@ async function king() {
       detail: { violations: latestViol, history },
     });
   }
-  console.log(`\n  king: ${out.length} program records`);
+  console.log(`\n  king: ${out.length} program records (${stillOpen.size} dropped but still listed open by King — exempt from the delist clock)`);
   await fixGeocodes(out);
-  const merged = mergePrograms(out);
-  console.log(`  king: ${merged.length} establishments after merging duplicate program permits`);
+  const { list: merged, absorbed } = mergePrograms(out);
+  console.log(`  king: ${merged.length} establishments after merging duplicate program permits (${Object.keys(absorbed).length} permits absorbed)`);
   // rebuild the King rubric (item major/minor + points, grade cutoffs) so the Snohomish pass scores like King
   try { const rb = buildKingRubric(merged); writeFileSync(KMAP_PATH, JSON.stringify(rb)); console.log(`  king rubric: ${rb.nItems} items, cutoffs ${rb.cutoffs.join("/")}`); } catch (e) { console.log("  king rubric build failed:", e.message); }
+  merged._absorbed = absorbed;   // carried to the reconciler (see mergePrograms); spreading into recs drops it, so main() reads it first
+  merged._stillOpen = [...stillOpen];   // ditto — ids to exempt from "Closed" (see the OPEN_STATUS note above)
   return merged;
 }
 
@@ -265,18 +280,26 @@ async function googleGeocode(addr) {
 // stable id (smallest in the group), headline rating from the most-recently-inspected
 // program, but age + all worst/avg metrics computed over the COMBINED history so a bad
 // sub-program still flags the location.
+// Collapses the several program permits a single business can hold (a grocery with separate
+// deli/bakery/meat permits, etc.) into one map pin. Returns the merged list PLUS `absorbed`:
+// {swallowedId -> survivingRepId}. The representative is the lexicographically smallest id in
+// the group, which is stable only while group membership is — when a lower-numbered permit
+// later joins the group the representative moves, and the previous representative's stored row
+// is orphaned. Reporting the absorbed ids lets the reconciler delete those orphans outright
+// (they're bookkeeping artifacts, NOT closures) and re-point any favorites at the survivor.
 function mergePrograms(list) {
   const groups = new Map();
   for (const r of list) {
     const k = knorm(r.name) + "|" + r.lat.toFixed(4) + "," + r.lon.toFixed(4);
     (groups.get(k) || groups.set(k, []).get(k)).push(r);
   }
-  const out = [];
+  const out = [], absorbed = {};
   for (const g of groups.values()) {
     if (g.length === 1) { out.push(g[0]); continue; }
     g.sort((a, b) => String(b.inspect_date || "").localeCompare(String(a.inspect_date || "")));   // most recent first
     const rep = { ...g[0] };
     rep.id = g.map((r) => r.id).sort()[0];                          // stable across runs (independent of recency)
+    for (const r of g) if (r.id !== rep.id) absorbed[r.id] = rep.id;
     let hist = [];
     for (const r of g) hist = hist.concat((r.detail && r.detail.history) || []);
     hist.sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 10);
@@ -288,7 +311,7 @@ function mergePrograms(list) {
     rep.detail = { violations: (g[0].detail && g[0].detail.violations) || [], history: hist };
     out.push(rep);
   }
-  return out;
+  return { list: out, absorbed };
 }
 
 // ───────────────────────── Snohomish County (EnvisionConnect) ─────────────────
@@ -518,8 +541,8 @@ async function pushBloopers(bloopers) {
 
 async function main() {
   console.log("SnoKing Food Safety ingest", DRY ? "(dry run)" : "-> " + WORKER_URL);
-  let recs = [], bloopers = [];
-  if (!SNO_ONLY) { console.log("King County…"); recs.push(...(await king())); }
+  let recs = [], bloopers = [], kingAbsorbed = null, kingStillOpen = null;
+  if (!SNO_ONLY) { console.log("King County…"); const k = await king(); kingAbsorbed = k._absorbed || {}; kingStillOpen = k._stillOpen || []; recs.push(...k); }
   if (!KING_ONLY) { console.log("Snohomish County…"); const sno = await snohomish(); bloopers = sno._bloopers || []; recs.push(...sno); }
   // apply cuisine overrides that the name-classifier can't produce: agent-curated business/
   // institutional cafeterias (Aerojet, Boeing, Microsoft cafés…) + Google Places cuisine types.
@@ -551,6 +574,12 @@ async function main() {
   // from the county portal -> mark closed (auto-deleted after 6 months still-gone). Skip on king-only
   // runs (partial) — the Worker also guards against a truncated crawl mass-delisting.
   if (!KING_ONLY) await reconcileDelisted("snohomish", recs.filter((r) => r.county === "snohomish").map((r) => r.id));
+  // King is fetched in full on EVERY run (king-only included), so it reconciles every run. Three kinds
+  // of missing row, handled differently: ids absorbed by the permit merge are artifacts -> deleted at
+  // once (favorites re-pointed at the survivor); ids King still lists as open but our filters dropped
+  // -> left alone, because "Closed" would be false; everything else vanished from King's feed and is a
+  // real disappearance -> the delist clock, same as Snohomish.
+  if (!SNO_ONLY) await reconcileDelisted("king", recs.filter((r) => r.county === "king").map((r) => r.id), kingAbsorbed, kingStillOpen);
   await rebuildSnapshot();   // refresh the KV map-payload snapshots so /api/establishments never scans D1 on the hot path
 }
 async function rebuildSnapshot() {
@@ -562,15 +591,22 @@ async function rebuildSnapshot() {
     else console.log(`  rebuild-snapshot: HTTP ${r.status}`);
   } catch (e) { console.log(`  rebuild-snapshot failed: ${e.message}`); }
 }
-async function reconcileDelisted(county, ids) {
+async function reconcileDelisted(county, ids, absorbed, stillOpen) {
   try {
     const r = await fetch(WORKER_URL + "/reconcile-delisted", { method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + INGEST_TOKEN },
-      body: JSON.stringify({ county, ids }) });
+      body: JSON.stringify({ county, ids, ...(absorbed && Object.keys(absorbed).length ? { absorbed } : {}),
+        ...(stillOpen && stillOpen.length ? { keep: stillOpen } : {}), ...(RECONCILE_DRY ? { dry: true } : {}) }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) console.log(`  reconcile-delisted ${county}: HTTP ${r.status}`);
     else if (j.skipped) console.log(`  reconcile-delisted ${county}: SKIPPED (${j.reason}; live ${j.live} vs have ${j.have})`);
-    else console.log(`  reconcile-delisted ${county}: ${j.marked} marked closed, ${j.deleted} deleted (live ${j.live}/${j.have})`);
+    else if (j.dry) { writeFileSync(join(HERE, `reconcile-dry-${county}.json`), JSON.stringify(j, null, 1));
+      console.log(`  reconcile-delisted ${county} (DRY, nothing written): would mark ${j.marked} closed, delete ${j.deleted}, ` +
+        `remove ${j.absorbedDeleted} merge-orphans, re-point ${j.favoritesRemapped} favorites, ` +
+        `spare ${j.kept} still-listed-open -> reconcile-dry-${county}.json`); }
+    else console.log(`  reconcile-delisted ${county}: ${j.marked} marked closed, ${j.deleted} deleted, ` +
+      `${j.absorbedDeleted} merge-orphans removed (${j.favoritesRemapped} favorites re-pointed), ${j.kept} spared as still-listed-open (live ${j.live}/${j.have})` +
+      (j.absorbedSkipped ? `  [absorbed sweep SKIPPED: ${j.absorbedSkipped}]` : ""));
   } catch (e) { console.log(`  reconcile-delisted ${county} failed: ${e.message}`); }
 }
 main().catch((e) => { console.error("\nFAILED:", e.stack || e.message); process.exit(1); });

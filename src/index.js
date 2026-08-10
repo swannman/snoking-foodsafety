@@ -168,7 +168,12 @@ function restaurantHtml(r) {
   const addr = [r.address, cityC, "WA", r.zip].filter(Boolean).join(", ");
   const canonical = "https://food.snoking.app" + restPath(r);
   const title = `${r.name} — Health Inspection Rating (${cityC}) | Sno/King Food Safety`;
-  const desc = `${r.name} at ${addr}: current food-safety rating "${label}". See the full inspection history and violations from ${county} health-department records.`;
+  // The county stopped listing this one. Everything below is the LAST rating we captured, not a
+  // current one — say so in the description and on the page rather than presenting a stale grade as live.
+  const dl = r.delisted_at || null;
+  const desc = dl
+    ? `${r.name} at ${addr} is no longer listed by ${county}. Last recorded food-safety rating "${label}" — see the full inspection history and violations we captured.`
+    : `${r.name} at ${addr}: current food-safety rating "${label}". See the full inspection history and violations from ${county} health-department records.`;
   const hist = (det.history || []).slice(0, 20).map((h) =>
     `<tr><td>${hesc(h.date || "")}</td><td>${hesc(h.label || "")}</td><td>${h.score != null ? h.score + " pts" : ""}</td></tr>`).join("");
   const recent = (det.violations || []).slice(0, 12).map((v) => `<li>${hesc(v.label || "")}</li>`).join("");
@@ -208,14 +213,17 @@ function restaurantHtml(r) {
   li{margin:3px 0}
   .cta{display:inline-block;margin:8px 12px 4px 0;padding:9px 15px;border:1px solid #2a3038;border-radius:8px;text-decoration:none;font-weight:600}
   .muted{color:#8b949e;font-size:13px}
+  .gone{background:#1b2027;border:1px solid #2a3038;border-radius:8px;padding:10px 12px;margin:10px 0;color:#c9d2dc;font-size:14px}
+  .tag{display:inline-block;padding:3px 10px;border-radius:999px;background:#6e7681;color:#fff;font-weight:700;font-size:13px;margin-left:6px}
 </style></head>
 <body><div class="wrap">
   <p class="muted"><a href="/">Map</a> · <a href="/browse">Browse</a> · <a href="/browse/${r.county}/${slugify(r.city || "")}">${hesc(cityC)}</a></p>
   <h1>${hesc(r.name)}</h1>
   <div class="addr">${hesc(addr)} · ${county}</div>
-  <p><span class="badge" style="background:${color}">${label}</span></p>
+  <p><span class="badge" style="background:${color}">${label}</span>${dl ? `<span class="tag">Closed</span>` : ""}</p>
+  ${dl ? `<div class="gone">⚠︎ No longer listed by ${county} (since ${hesc(String(dl).slice(0, 10))}). It may have closed or changed ownership — the rating and history below are what we last captured, not a current inspection.</div>` : ""}
   ${r.score != null ? `<p><b>${r.county === "king" ? "Inspection score" : "Violation points"}:</b> ${r.score} <span class="muted">(lower is better)</span></p>` : ""}
-  <p><a class="cta" href="https://food.snoking.app/?focus=${encodeURIComponent(r.id)}">View on the map →</a>${r.report_url ? `<a class="cta" href="${hesc(r.report_url)}" rel="noopener">Official county report →</a>` : ""}</p>
+  <p><a class="cta" href="https://food.snoking.app/?focus=${encodeURIComponent(r.id)}">View on the map →</a>${r.report_url && !dl ? `<a class="cta" href="${hesc(r.report_url)}" rel="noopener">Official county report →</a>` : ""}</p>
   ${recent ? `<h2>Most recent violations</h2><ul>${recent}</ul>` : ""}
   ${hist ? `<h2>Inspection history</h2><table><tr><th>Date</th><th>Result</th><th>Points</th></tr>${hist}</table>` : ""}
   <p class="muted">Ratings are derived from public ${county} health-department inspection records. For authoritative information, use the official report linked above.</p>
@@ -273,7 +281,7 @@ export default {
     if (url.pathname.startsWith("/r/")) {
       const idkey = decodeURIComponent(url.pathname.slice(3).split("/")[0]);
       const id = idkey.replace(/\./, ":");
-      const row = await env.DB.prepare("SELECT id,county,name,address,city,zip,lat,lon,rating,score,report_url,detail FROM establishments WHERE id=?").bind(id).first();
+      const row = await env.DB.prepare("SELECT id,county,name,address,city,zip,lat,lon,rating,score,report_url,detail,delisted_at FROM establishments WHERE id=?").bind(id).first();
       if (!row) return new Response("Restaurant not found", { status: 404, headers: { "Content-Type": "text/plain" } });
       return new Response(restaurantHtml(row), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
     }
@@ -519,34 +527,86 @@ export default {
     }
 
     if (url.pathname === "/reconcile-delisted" && req.method === "POST") {
-      // Called after a FULL county crawl with the complete set of currently-listed ids. Any stored
-      // row for that county NOT in the set has vanished from the source portal — mark it delisted
-      // (closed). It stays on the map with its last rating; once it's been delisted >6 months
-      // continuously it's deleted. Re-appearing clears the flag (handled by /ingest above).
+      // Called after a FULL county crawl with the complete set of currently-listed ids. A stored row
+      // for that county that ISN'T in the set went missing for one of three very different reasons:
+      //
+      //   1. `absorbed` (optional, {oldId: survivingId}) — the ingester's permit merge folded this
+      //      permit into a sibling record for the SAME business. The business is open and still on
+      //      the map under the surviving id; this row is a duplicate pin. Delete it now, and move
+      //      any favorites to the survivor. Labelling it "Closed" would be a lie, and leaving it is
+      //      the ghost-duplicate bug (stacked pins frozen at an old rating).
+      //   2. `keep` (optional, [id]) — the county still publishes this business as open; it dropped
+      //      out of the crawl because of OUR filters (no usable rating, missing coordinates), not
+      //      because it disappeared. Leave the row exactly as it is. "Closed" is a claim the source
+      //      data contradicts, and a business quietly going 18 months between inspections must not
+      //      be enough to make us assert it.
+      //   3. everything else — it vanished from the source portal. Mark it delisted (shows a
+      //      "Closed" badge, keeps its last rating); after >6 months continuously gone it's deleted.
+      //
+      // Re-appearing clears the delist flag (handled by /ingest above).
       if ((req.headers.get("Authorization") || "") !== "Bearer " + env.INGEST_TOKEN)
         return new Response("unauthorized", { status: 401 });
       let body; try { body = await req.json(); } catch { return new Response("bad json", { status: 400 }); }
       const county = body && body.county, live = new Set((body && body.ids) || []);
+      const dry = !!(body && body.dry);   // classify + report, write nothing (for verifying a change before it deletes)
       if (!county || !live.size) return new Response("need county + non-empty ids", { status: 400 });
+      // an id can't be both live and absorbed; if a buggy caller says so, "live" wins (never delete)
+      const absorbed = new Map();
+      for (const [k, v] of Object.entries((body && body.absorbed) || {}))
+        if (!live.has(k) && v && v !== k) absorbed.set(k, v);
+      // spared ids (see 2 above). Checked BEFORE `absorbed` below: if the merge somehow claims an id
+      // the county still lists on its own, the non-destructive reading wins.
+      const keep = new Set((body && body.keep) || []);
       const have = (await env.DB.prepare("SELECT COUNT(*) AS n FROM establishments WHERE county=?").bind(county).first())?.n || 0;
       // guard: a truncated crawl must never mass-delist. Require the live set to cover most of what we have.
       if (live.size < have * 0.7) return Response.json({ skipped: true, reason: "live set too small", live: live.size, have });
       const { results } = await env.DB.prepare("SELECT id, delisted_at FROM establishments WHERE county=?").bind(county).all();
       const now = new Date().toISOString();
       const cutoff = new Date(Date.now() - 183 * 86400000).toISOString();   // ~6 months
-      const toMark = [], toDelete = [];
+      const toMark = [], toDelete = [], toAbsorb = [];
+      let kept = 0;
       for (const row of results || []) {
         if (live.has(row.id)) continue;                       // still listed — nothing to do (clear handled by /ingest)
+        if (keep.has(row.id)) { kept++; continue; }           // county still calls it open — don't touch it
+        if (absorbed.has(row.id)) { toAbsorb.push(row); continue; }   // merge artifact, not a closure
         if (!row.delisted_at) toMark.push(row.id);            // newly vanished — start the clock
         else if (row.delisted_at < cutoff) toDelete.push(row.id);   // gone >6 months — remove
+      }
+      // second guard, for the delete-now path specifically: a merge that suddenly claims to absorb a
+      // big slice of the county is a bug, not 700 restaurants sharing a permit. Skip the sweep, keep
+      // the delist path working, and report it so the ingest log shows something went wrong.
+      let absorbedSkipped = null;
+      if (toAbsorb.length > Math.max(50, have * 0.1)) {
+        absorbedSkipped = `${toAbsorb.length} absorbed ids exceeds 10% of ${have}`;
+        toAbsorb.length = 0;
       }
       const chunk = (arr, sql, extra) => { for (let i = 0; i < arr.length; i += 90) { const c = arr.slice(i, i + 90);
         stmtsQ.push(env.DB.prepare(sql.replace("(?)", "(" + c.map(() => "?").join(",") + ")")).bind(...(extra || []), ...c)); } };
       const stmtsQ = [];
+      // Re-point favorites before deleting the row they reference, so a saved restaurant survives a
+      // permit renumbering instead of silently falling off someone's alert list. Look up which
+      // absorbed ids are actually favorited first — that's nearly always none, and it keeps this
+      // from emitting two statements per absorbed row every single run.
+      const absorbedIds = toAbsorb.map((r) => r.id);
+      const favIds = [];
+      for (let i = 0; i < absorbedIds.length; i += 90) {   // same 90-param chunking as the writes below
+        const c = absorbedIds.slice(i, i + 90);
+        const { results: fr } = await env.DB.prepare(`SELECT DISTINCT est_id FROM push_favorites WHERE est_id IN (${c.map(() => "?").join(",")})`).bind(...c).all();
+        for (const row of fr || []) favIds.push(row.est_id);
+      }
+      // INSERT OR IGNORE first (the sub may already favorite the survivor), then drop the old pair —
+      // order matters, and (sub_id, est_id) is the primary key so duplicates can't form.
+      for (const id of favIds) {
+        stmtsQ.push(env.DB.prepare("INSERT OR IGNORE INTO push_favorites (sub_id, est_id) SELECT sub_id, ? FROM push_favorites WHERE est_id=?").bind(absorbed.get(id), id));
+        stmtsQ.push(env.DB.prepare("DELETE FROM push_favorites WHERE est_id=?").bind(id));
+      }
+      chunk(absorbedIds, "DELETE FROM establishments WHERE id IN (?)");
       chunk(toMark, "UPDATE establishments SET delisted_at=?, updated_at=? WHERE id IN (?)", [now, now]);
       chunk(toDelete, "DELETE FROM establishments WHERE id IN (?)");
-      for (let i = 0; i < stmtsQ.length; i += 20) await env.DB.batch(stmtsQ.slice(i, i + 20));
-      return Response.json({ ok: true, county, live: live.size, have, marked: toMark.length, deleted: toDelete.length });
+      if (!dry) for (let i = 0; i < stmtsQ.length; i += 20) await env.DB.batch(stmtsQ.slice(i, i + 20));
+      return Response.json({ ok: true, county, live: live.size, have, marked: toMark.length, deleted: toDelete.length,
+        absorbedDeleted: toAbsorb.length, favoritesRemapped: favIds.length, kept, ...(absorbedSkipped ? { absorbedSkipped } : {}),
+        ...(dry ? { dry: true, absorbedIds, markedIds: toMark, deleteIds: toDelete } : {}) });
     }
 
     if (url.pathname === "/rebuild-snapshot" && req.method === "POST") {
@@ -1912,8 +1972,9 @@ function render(){
 }
 fetch("/api/bloopers?v="+DATA_VERSION).then(function(r){return r.json();}).then(function(j){
   ALL=(j.items||[]);
-  // light shuffle so it's not all one facility in a row, but keep it deterministic enough
-  ALL.sort(function(a,b){return (a.date<b.date?1:a.date>b.date?-1:0)|| (a.text<b.text?-1:1);});
+  // fresh random order on every load — the reel is for browsing, not chronology, and the API
+  // response is edge-cached in one fixed order, so the shuffle has to happen here on the client
+  for(var i=ALL.length-1;i>0;i--){var k=Math.floor(Math.random()*(i+1)),tmp=ALL[i];ALL[i]=ALL[k];ALL[k]=tmp;}
   render();
 });
 var t;document.getElementById("q").oninput=function(e){clearTimeout(t);var v=e.target.value.toLowerCase();t=setTimeout(function(){q=v;render();},160);};
