@@ -156,13 +156,23 @@ on a schedule. Two GitHub Actions handle that:
 - **`deploy.yml`** — deploys the Worker on push to `main` touching `src/**` or
   `wrangler.toml`.
 
-## Contributing / caveats
+## Caveats
 
-Spot a restaurant that looks wrong? Open an issue — but check the county's own record
-first, since most discrepancies (stale names, missing establishments) originate
-upstream and can't be fixed here.
+If a restaurant looks wrong on the map, check the county's own record first — most
+discrepancies (stale names, missing establishments) originate upstream and can't be
+fixed here.
 
 > Data is sourced from county health-department records and may lag the most recent
 > on-site inspection. Ratings are a normalization, not an official grade — for
 > Snohomish especially, the 1–4 rating is *our* King-style scoring, not something the
 > county publishes. Always confirm via the linked official report.
+
+## License
+
+Code is [MIT](LICENSE).
+
+The data is not mine to license: inspection records are public records belonging to
+[Public Health – Seattle & King County](https://kingcounty.gov/en/dept/dph) and the
+[Snohomish Health Department](https://snohomishcountywa.gov/5171/Health-Department),
+and `regions/tracts.geojson` is US Census TIGER/Line data (public domain). If you
+reuse any of it, cite the counties rather than this repo.
