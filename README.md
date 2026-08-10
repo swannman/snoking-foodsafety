@@ -9,14 +9,14 @@ they can sit on the same map without the comparison being a lie.
 
 ```
    data sources                        ingester (Node)               Cloudflare
- ┌────────────────────────┐          ┌───────────────────┐        ┌──────────────────────────┐
+ ┌────────────────────────┐          ┌────────────────────┐        ┌──────────────────────────┐
  │ King Co. ArcGIS (EPL)  │──────────▶ ingest/ingest.mjs  │        │  Worker (src/index.js)   │
  │  business/inspection/  │          │  • merge permits   │──POST──▶  /ingest        (Bearer) │
  │  violation layers      │          │  • geocode (Sno)   │        │  /reconcile-... (Bearer) │
  │                        │          │  • King rubric ──▶ │        │                          │
  │ Snohomish Envision-    │──scrape──▶    scores Sno too  │        │  /              map      │
  │  Connect portal (PA1)  │          │  • normalize 1–4   │        │  /api/*         JSON     │
- └────────────────────────┘          └───────────────────┘        │  /r/<id>, /browse  SEO   │
+ └────────────────────────┘          └────────────────────┘        │  /r/<id>, /browse  SEO   │
                                                                    │      │                   │
                                                                    │  D1 + KV snapshot + AE   │
                                                                    └──────────────────────────┘
