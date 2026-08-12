@@ -2,7 +2,10 @@ name: Deploy Worker
 on:
   push:
     branches: [main]
-    paths: ["src/**", "wrangler.toml", ".github/workflows/deploy.yml"]
+    # public/** matters: those files ship with the Worker as static assets, so a change
+    # to robots.txt / the manifest / icons is a deploy. Leaving it out meant such a change
+    # committed cleanly and then silently never went live.
+    paths: ["src/**", "public/**", "wrangler.toml", ".github/workflows/deploy.yml"]
   workflow_dispatch: {}
 
 jobs:

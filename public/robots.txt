@@ -1,4 +1,22 @@
+# Default: everything is crawlable. Search engines are the point.
 User-agent: *
 Allow: /
+
+# Amazonbot feeds Alexa and Amazon's AI assistants — the same class of crawler that put
+# us in ChatGPT — so it stays. But it sweeps all ~13.8k /r/ pages every couple of days:
+# 37% of all Worker requests, averaging a hit every 12s. Space it out instead of blocking.
+# 30s caps it near 2.9k/day and still refreshes the whole catalog inside a week.
+User-agent: Amazonbot
+Crawl-delay: 30
+Allow: /
+
+# Backlink / SEO-intelligence scrapers. They crawl the full catalog to build databases
+# sold to other people, and have no bearing on Google or Bing rankings — the bandwidth
+# buys us nothing. Both honor robots.txt.
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
 
 Sitemap: https://food.snoking.app/sitemap.xml
