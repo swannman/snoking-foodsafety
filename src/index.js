@@ -2058,6 +2058,9 @@ const ABOUT_HTML = String.raw`<!doctype html>
     <li>Snohomish County: <a href="https://www.snohd.org/169/Food-Safety-Program" target="_blank" rel="noopener">Snohomish County Health Department &mdash; Food Safety Program</a></li>
   </ul>
 
+  <h2>Source code</h2>
+  <p>The whole thing is open source: <a href="https://github.com/swannman/snoking-foodsafety" target="_blank" rel="noopener">github.com/swannman/snoking-foodsafety</a>. That includes the ingester that pulls both counties and the exact scoring code described above, so if you want to check how a rating was arrived at, you can read it rather than take my word for it.</p>
+
   <h2>Credits</h2>
   <p><strong>Inspection data:</strong> Public Health &mdash; Seattle &amp; King County, and the Snohomish County Health Department.</p>
   <p><strong>Map tiles:</strong> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, and &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> (neighborhood-trends map). Demographic context on the trends map is from the U.S. Census Bureau&rsquo;s American Community Survey.</p>
