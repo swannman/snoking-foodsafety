@@ -10,6 +10,7 @@
 // Secrets: INGEST_TOKEN, GOOGLE_KEY (optional — Street View is hidden without it).
 
 import { sendPush } from "./webpush.js";
+import { handleMcp } from "./mcp.js";
 const RATING_LABEL = { 1: "Excellent", 2: "Good", 3: "Okay", 4: "Needs to Improve" };
 // per-inspection rating from its violation points (lower=better); shared by both counties
 const pointRating = (p) => (p == null || isNaN(p) ? null : p <= 0 ? 1 : p <= 15 ? 2 : p <= 35 ? 3 : 4);
@@ -367,6 +368,9 @@ export default {
 
     // PWA manifest, icons, and the service worker are now static files in /public, served
     // straight from Cloudflare's edge (no Worker invocation) — see public/ + [assets] in wrangler.toml.
+
+    // remote MCP server — AI assistants query the inspection data directly (read-only; src/mcp.js)
+    if (url.pathname === "/mcp") return handleMcp(req, env);
 
     if (url.pathname === "/ev" && req.method === "POST") {
       // anonymous product-usage event: {n: name, l: label, l2/l3: extra dimensions}. No user PII;
@@ -2066,6 +2070,11 @@ const ABOUT_HTML = String.raw`<!doctype html>
     <li>King County: <a href="https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings" target="_blank" rel="noopener">food safety ratings lookup</a></li>
     <li>Snohomish County: <a href="https://www.snohd.org/169/Food-Safety-Program" target="_blank" rel="noopener">Snohomish County Health Department &mdash; Food Safety Program</a></li>
   </ul>
+
+  <h2>Use it from an AI assistant</h2>
+  <p>The site hosts an <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a> server, so AI assistants can query the inspection data directly &mdash; search establishments, pull a restaurant's full violation history, or get county-wide stats. Point any MCP client at:</p>
+  <p><code style="background:#161b22;border:1px solid var(--line);border-radius:6px;padding:3px 8px">https://food.snoking.app/mcp</code></p>
+  <p>In Claude, add it as a custom connector with that URL (no API key needed). It's read-only and serves the same public data as the map.</p>
 
   <h2>Source code</h2>
   <p>The whole thing is open source: <a href="https://github.com/swannman/snoking-foodsafety" target="_blank" rel="noopener">github.com/swannman/snoking-foodsafety</a>. That includes the ingester that pulls both counties and the exact scoring code described above, so if you want to check how a rating was arrived at, you can read it rather than take my word for it.</p>

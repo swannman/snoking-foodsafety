@@ -77,6 +77,8 @@ live King data on every full run and cached in `ingest/king_violation_map.json`.
   (Web Push / VAPID; dispatched after each ingest).
 - **Region stats** — ratings aggregated by census tract (`regions/tracts.geojson`).
 - **`/dashboard`** — token-gated usage stats from Analytics Engine (anonymous, no PII).
+- **`/mcp`** — a hosted [MCP](https://modelcontextprotocol.io) server (Streamable HTTP, no auth),
+  so AI assistants can search establishments and pull inspection histories directly.
 - Installable PWA (service worker, offline shell).
 
 ## Handling businesses that go missing
@@ -107,6 +109,7 @@ displayed — the ratings are current even when the name isn't.
 |---|---|
 | `src/index.js` | The whole Worker — map UI, all HTML pages, `/api/*`, ingest + admin endpoints |
 | `src/webpush.js` | VAPID signing / Web Push delivery |
+| `src/mcp.js` | The `/mcp` MCP server — hand-rolled Streamable HTTP, three read-only tools over D1 |
 | `schema.sql` | D1: `establishments`, `bloopers`, `push_subs`, `push_favorites` |
 | `ingest/ingest.mjs` | Pulls both counties, merges, geocodes, scores, POSTs |
 | `ingest/README.md` | Per-file guide to the ingest directory — what each tool does, what reads it, what needs credentials |
