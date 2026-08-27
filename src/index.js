@@ -1204,7 +1204,7 @@ function restoreView(rv){
       function(a,b){document.getElementById("rval").textContent=METRIC.fmt(a,b);},METRIC.step);}
   if(rv.cu!=null){var sel=document.getElementById("cuisine");sel.value=rv.cu;
     if(rv.cu==="__fav"){favOnly=true;fCuisine="";}else{favOnly=false;fCuisine=rv.cu;}}
-  if(rv.sm)sortMode=rv.sm;
+  if(rv.sm)sortMode=(rv.sm==="near"&&!mePos)?"alpha":rv.sm;   // "near" needs a live fix; never auto-prompt for location on load
   if(rv.q){setQuery(rv.q);var qi=document.getElementById("q");if(qi)qi.value=rv.q;}
   updateSortLabel();
   if(rv.la!=null&&rv.lo!=null&&rv.z!=null)map.setView([rv.la,rv.lo],rv.z);
@@ -1307,7 +1307,9 @@ function emojiMarker(loc){var m=L.marker([loc.la,loc.lo],{icon:emojiIcon(loc),ke
 function updateEmojiHint(){var el=document.getElementById("emojihint");if(el)el.textContent=(emojiMode&&map.getZoom()<EMOJI_ZOOM)?"— zoom in for emoji ↗":"";}
 function renderList(){
   var b=map.getBounds(),vis=curVisEst.filter(function(d){return b.contains([d.la,d.lo]);});   // only what's in view
-  if(sortMode==="alpha"){vis.sort(function(a,b){return a.n.localeCompare(b.n);});}   // default: A–Z by name
+  if(sortMode==="near"&&!mePos)sortMode="alpha";   // "near" without a location fix (restored state) — fall back
+  if(sortMode==="near"){vis.sort(function(a,b){return distKm(a)-distKm(b)||a.n.localeCompare(b.n);});}
+  else if(sortMode==="alpha"){vis.sort(function(a,b){return a.n.localeCompare(b.n);});}   // default: A–Z by name
   else{var flip=(METRIC&&METRIC.hiWorse===false)?-1:1;                                            // resid: higher = better, so flip
     var sv=function(d){var v=METRIC?METRIC.val(d):ratingOf(d);return v==null?-Infinity:flip*v;};  // normalized so higher = worse
     var dir=sortMode==="worst"?1:-1;                                                              // worst = desc, best = asc
@@ -1319,7 +1321,7 @@ function renderList(){
     h+='<div class="item" data-id="'+esc(d.id)+'"><div class="bar" style="background:'+colorOf(d)+'"></div>'+
        '<div><div class="nm">'+esc(d.n)+'</div>'+
        '<div class="ad">'+esc(d.a||"")+(d.ci?", "+esc(d.ci):"")+'</div>'+
-       '<div class="mt"><b style="color:var(--ink)">'+esc(lead)+'</b> · '+(CU_LABEL[d.cu]||"Other")+(d.dl?' · <span style="color:#6e7681;font-weight:600">Closed</span>':"")+'</div></div></div>';
+       '<div class="mt"><b style="color:var(--ink)">'+esc(lead)+'</b> · '+(CU_LABEL[d.cu]||"Other")+(sortMode==="near"?' · '+fmtDist(distKm(d)):"")+(d.dl?' · <span style="color:#6e7681;font-weight:600">Closed</span>':"")+'</div></div></div>';
   }
   if(vis.length>cap)h+='<div class="item" style="cursor:default;color:#6e7681">+ '+(vis.length-cap).toLocaleString()+' more — narrow the filters to see them</div>';
   var L2=document.getElementById("list");L2.innerHTML=h;
@@ -1541,23 +1543,33 @@ function fitSearch(){
   qc.addEventListener("click",function(){clearTimeout(qt);q.value="";setQuery("");render();q.focus();});})();
 // flip the list sort order (worst-first <-> best-first) by clicking the "worst first" label
 // time-based metrics ("recently changed", "years in operation") read newest/oldest; every other metric reads worst/best
-function sortLabel(){if(sortMode==="alpha")return "A–Z";if(colorMode==="changed")return sortMode==="worst"?"newest first":"oldest first";if(colorMode==="age")return sortMode==="worst"?"oldest first":"newest first";return sortMode==="worst"?"worst first":"best first";}
+function sortLabel(){if(sortMode==="near")return "closest first";if(sortMode==="alpha")return "A–Z";if(colorMode==="changed")return sortMode==="worst"?"newest first":"oldest first";if(colorMode==="age")return sortMode==="worst"?"oldest first":"newest first";return sortMode==="worst"?"worst first":"best first";}
 function updateSortLabel(){var el=document.getElementById("sortdir");if(!el)return;
   if(colorMode==="cuisine"){sortMode="alpha";el.textContent="A–Z";el.style.cursor="default";el.style.textDecoration="none";el.title="";}   // cuisine is categorical — no best/worst ordering
   else{el.textContent=sortLabel();el.style.cursor="pointer";el.style.textDecoration="underline dotted";el.title="Click to change sort";}}
-document.getElementById("sortdir").onclick=function(){if(colorMode==="cuisine")return;sortMode=sortMode==="alpha"?"best":(sortMode==="best"?"worst":"alpha");updateSortLabel();renderList();};
+document.getElementById("sortdir").onclick=function(){if(colorMode==="cuisine")return;
+  // cycle best → worst → A–Z (→ closest, once a location fix exists) → best …
+  sortMode=sortMode==="alpha"?(mePos?"near":"best"):sortMode==="near"?"best":(sortMode==="best"?"worst":"alpha");
+  updateSortLabel();renderList();};
 // click the title bar to collapse/expand the filter+list panel (frees the map, esp. on mobile)
 document.getElementById("head").onclick=function(e){if(e.target.id==="q"||e.target.tagName==="INPUT"||e.target.closest(".statslink"))return;
   if(!window.matchMedia("(max-width:720px)").matches)return;   // collapse only on mobile
   document.getElementById("feed").classList.toggle("collapsed");
   setTimeout(function(){map.invalidateSize();},210);};
 // 📍 locate the user, drop a marker, and zoom in
-var meMarker=null;
+var meMarker=null,mePos=null;   // mePos: the last geolocation fix — set only by the button, never requested on load
+// equirectangular distance — fine at city scale, and this sorts hundreds of rows per map move
+function distKm(d){var dx=(d.lo-mePos.lo)*Math.cos(mePos.la*Math.PI/180)*111.32,dy=(d.la-mePos.la)*110.57;return Math.sqrt(dx*dx+dy*dy);}
+function fmtDist(km){var mi=km*0.621371;return mi<0.095?Math.round(mi*5280/10)*10+" ft":mi.toFixed(1)+" mi";}
 document.getElementById("loc").onclick=function(e){e.stopPropagation();var btn=this;track("locate");
   if(!navigator.geolocation){alert("Location isn't available in this browser.");return;}
   btn.classList.add("locating");
   navigator.geolocation.getCurrentPosition(function(p){btn.classList.remove("locating");
     var la=p.coords.latitude,lo=p.coords.longitude;
+    mePos={la:la,lo:lo};
+    // knowing where they stand changes what the list is FOR: closest-first becomes the default
+    // (cuisine shading keeps its categorical A–Z; the sort-label cycle can still reach "closest")
+    if(colorMode!=="cuisine"){sortMode="near";updateSortLabel();}
     if(meMarker)map.removeLayer(meMarker);
     // a non-interactive DOM marker (NOT a canvas circleMarker — that would spawn a second
     // full-map canvas in markerPane and swallow clicks on the dots underneath)
