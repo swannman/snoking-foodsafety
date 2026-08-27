@@ -1775,9 +1775,18 @@ function geohashCell(lat,lon,prec){var latR=[-90,90],lonR=[-180,180],hash="",bit
 function ghPrec(z){return z<=8?4:z<=10?5:z<=12?6:z<=14?7:8;}   // finer tiles as you zoom in
 function pRating(p){var b=q("basis").value;return b==="last"?p.r:(b==="all"?(p.aa!=null?p.aa:p.r):(p.ra!=null?p.ra:p.r));}
 
-// see the main map: no +/- buttons, but the OSM/CARTO credit stays on the map as the licenses require
+// see the main map: no +/- buttons, but the basemap credit stays on the map as the license requires
 var map=L.map("map",{preferCanvas:true,zoomControl:false}).setView([47.75,-122.1],9);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",{maxZoom:18,subdomains:"abcd",attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'}).addTo(map);
+// Esri Light Gray Canvas, not CARTO: CARTO started stamping "API KEY REQUIRED" diagonally across
+// unauthenticated basemap tiles, and this is the closest keyless muted base. A muted base is the
+// whole point here — the tract/geohash fills carry the information, so the basemap has to stay out
+// of their way. Esri ships labels as a separate layer, which is an improvement: they go in a pane
+// ABOVE the choropleth so city names stay legible through the fills, with pointer-events off so
+// clicks still reach the polygons. Only cached to z16; maxNativeZoom lets Leaflet upscale past it.
+var ESRI="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_{v}/MapServer/tile/{z}/{y}/{x}";
+L.tileLayer(ESRI.replace("{v}","Base"),{maxZoom:18,maxNativeZoom:16,attribution:'Tiles &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a> &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}).addTo(map);
+map.createPane("labels");map.getPane("labels").style.zIndex=450;map.getPane("labels").style.pointerEvents="none";
+L.tileLayer(ESRI.replace("{v}","Reference"),{maxZoom:18,maxNativeZoom:16,pane:"labels"}).addTo(map);
 map.attributionControl.setPrefix("");
 var regions=null, statByRegion={}, gl=null, breaks=[], fitted=false;
 
@@ -2063,7 +2072,7 @@ const ABOUT_HTML = String.raw`<!doctype html>
 
   <h2>Credits</h2>
   <p><strong>Inspection data:</strong> Public Health &mdash; Seattle &amp; King County, and the Snohomish County Health Department.</p>
-  <p><strong>Map tiles:</strong> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, and &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> (neighborhood-trends map). Demographic context on the trends map is from the U.S. Census Bureau&rsquo;s American Community Survey.</p>
+  <p><strong>Map tiles:</strong> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, and Esri &mdash; Esri, HERE, Garmin, and the GIS user community (neighborhood-trends map). Demographic context on the trends map is from the U.S. Census Bureau&rsquo;s American Community Survey.</p>
 </div><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "4038d69ec05f4dff86953ee46d95bcdd"}'></script></body></html>`;
 
 // ============================ /dashboard — token-gated analytics ============================
