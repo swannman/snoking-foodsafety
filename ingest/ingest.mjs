@@ -216,6 +216,9 @@ async function king() {
     // live carry-forward first (it reflects any curation newer than the snapshot), then the
     // snapshot, then the classifier
     const cuisine = (h && h.cu) || snapCuisine(b.Business_Name, b.Business_Address) || cuisineOf(b.Business_Name);
+    // "Mobile Food Unit - Risk Category X" — a truck/cart, permitted here but vending anywhere.
+    // Deliberately NOT matching "Commissary for Mobile FSE": those are fixed kitchens.
+    const mobile = /^Mobile Food Unit/i.test(b.Business_Establishment_Descr || "");
     out.push({
       id: "king:" + recId, county: "king", name: (b.Business_Name || "").trim(), address: (b.Business_Address || "").trim(),
       city: (b.Business_City || "").trim(), zip: String(b.Business_Location_Zip || "").trim(), lat, lon,
@@ -229,6 +232,7 @@ async function king() {
       rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
       rating_routine: ratingRoutine(mh) ?? rating, rating_worst: ratingWorst(mh) ?? rating, poor_frac: poorFrac(mh), worst_points: worstPoints(mh),
       tract_id: tagTract(lon, lat),
+      mobile: mobile || undefined,
       detail: { violations: latestViol, history },
     });
   }
@@ -419,6 +423,7 @@ async function snohomish() {
         (progCache[f.FacilityId]?.programId ? "/" + progCache[f.FacilityId].programId : ""),
       rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
       rating_routine: ratingRoutine(mh) ?? rating, rating_worst: ratingWorst(mh) ?? rating, poor_frac: poorFrac(mh), worst_points: worstPoints(mh),
+      mobile: /MOBILE FOOD/i.test(category || "") || undefined,   // "MOBILE FOOD VEHICLE - <risk>"
       detail: { violations, history, category },
     });
   }
@@ -566,6 +571,11 @@ async function main() {
   }
   let nov = 0; for (const r of recs) if (ovMap[r.id]) { r.cuisine = ovMap[r.id]; nov++; }
   console.log(`  applied ${nov} cuisine overrides`);
+  // mobile units (county-declared, both feeds) are ALWAYS "Food Truck / Mobile" — their pin is the
+  // operator's registered base, not a place you can eat, so the what-they-serve cuisine would mislead.
+  // Applied after every other cuisine source so nothing (carry-forward, snapshot, Places) undoes it.
+  let nmb = 0; for (const r of recs) if (r.mobile) { r.cuisine = "foodtruck"; nmb++; }
+  console.log(`  ${nmb} county-declared mobile units -> cuisine "foodtruck"`);
   // manual coordinate overrides: reported pins where Census interpolated to the wrong spot (e.g. onto a
   // neighboring street). Keyed by id -> {lat, lon}; applied post-geocode so they stick across re-ingests.
   try {

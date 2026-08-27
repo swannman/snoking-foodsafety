@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS establishments (
   poor_frac    REAL,               -- fraction of routine inspections rated Okay-or-worse (0..1, chronic-offender signal)
   worst_points REAL,               -- highest single-inspection point score on record (worst inspection)
   tract_id     TEXT,               -- census tract region_id (point-in-polygon), for the stats choropleth
+  mobile       INTEGER,            -- 1 = county-declared mobile unit (truck/cart): King "Mobile Food Unit", Sno "MOBILE FOOD VEHICLE". Address is the operator's base, not a vending spot.
   prev_rating  INTEGER,            -- the rating before the most recent change (NULL = first/new rating); set by the upsert
   rating_changed_at TEXT,          -- inspect_date when the current rating took effect (powers the "recently changed" view)
   change_svc   TEXT,               -- type of inspection that set the current rating: 'routine'|'reinspection'|'grade'|'other'

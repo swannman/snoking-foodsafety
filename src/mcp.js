@@ -16,6 +16,7 @@ const INSTRUCTIONS =
   "King County ratings are the county's own published grade; Snohomish County doesn't publish one, so its rating is derived from the same WA food code using King's method (comparable by design). " +
   "Data refreshes from county records about daily. " +
   "Start with search_restaurants (or get_overview for valid cuisine keys and dataset totals); get_restaurant returns full violation and inspection history. " +
+  "Records with food_truck: true are mobile units (cuisine 'foodtruck'): the address is the operator's registered base, NOT where they vend — don't tell people to eat at that address. " +
   "Every establishment also has a human-readable page at the returned page_url — cite that when answering people.";
 
 // Browser-based MCP clients (claude.ai custom connectors) do a CORS preflight before POSTing.
@@ -78,6 +79,7 @@ function rowOut(r) {
     avg_last5: r.rating_avg, last_inspection: r.inspect_date, page_url: pageUrl(r),
   };
   if (r.prev_rating != null && r.rating_changed_at) { o.previous_rating = r.prev_rating; o.rating_changed = r.rating_changed_at.slice(0, 10); }
+  if (r.mobile) o.food_truck = true;    // mobile unit — address/coords are the operator's registered base, not where it vends
   if (r.delisted_at) o.closed = true;   // no longer listed by the county — rating shown is the last one captured
   return o;
 }
@@ -100,7 +102,7 @@ async function callTool(env, name, a) {
                 :                                 "(rating IS NULL), rating ASC, COALESCE(rating_avg, rating) ASC";
     const limit = Math.min(50, Math.max(1, a.limit || 10));
     const { results } = await env.DB.prepare(
-      `SELECT id,name,address,city,county,cuisine,rating,rating_avg,inspect_date,prev_rating,rating_changed_at,delisted_at
+      `SELECT id,name,address,city,county,cuisine,rating,rating_avg,inspect_date,prev_rating,rating_changed_at,delisted_at,mobile
        FROM establishments WHERE ${where.join(" AND ")} ORDER BY ${order}, name ASC LIMIT ?`
     ).bind(...binds, limit).all();
     return { count: (results || []).length, note: "ratings: 1=Excellent (best) … 4=Needs to Improve (worst)", results: (results || []).map(rowOut) };

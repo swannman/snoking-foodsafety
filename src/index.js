@@ -107,11 +107,11 @@ function cachePut(req, ctx, resp) {
 // that D1 scan at once → contention → 504s. So the ingester prebuilds these payloads into
 // KV once per refresh, and the hot path serves straight from KV (no D1 scan). Bump SNAP_VER
 // whenever the item shape below changes — the new key misses, so the handler rebuilds from D1.
-const SNAP_VER = "1";
+const SNAP_VER = "2";   // v2: added mb (county-declared mobile unit)
 const SNAP_EST = "snap:establishments:" + SNAP_VER, SNAP_PTS = "snap:points:" + SNAP_VER;
 async function buildEstablishments(env) {
   const { results } = await env.DB.prepare(
-    `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at
+    `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at,mobile
      FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
   ).all();
   const items = (results || []).map((r) => ({
@@ -119,6 +119,7 @@ async function buildEstablishments(env) {
     la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
     g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at, cs: r.change_svc,
     ...(r.delisted_at ? { dl: r.delisted_at } : {}),
+    ...(r.mobile ? { mb: 1 } : {}),
   }));
   const upd = await env.DB.prepare("SELECT MAX(updated_at) AS u FROM establishments").first();
   return { updated: upd?.u ?? null, count: items.length, items };
@@ -497,15 +498,15 @@ export default {
       const stmts = batch.map((r) =>
         env.DB.prepare(
           `INSERT INTO establishments
-             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,prev_rating,rating_changed_at,change_svc,change_detected_at,notified_at,updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,mobile,prev_rating,rating_changed_at,change_svc,change_detected_at,notified_at,updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(id) DO UPDATE SET
              county=excluded.county, name=excluded.name, address=excluded.address, city=excluded.city,
              zip=excluded.zip, lat=excluded.lat, lon=excluded.lon, cuisine=excluded.cuisine,
              rating_label=excluded.rating_label, grade=excluded.grade, score=excluded.score, result=excluded.result,
              inspect_date=excluded.inspect_date, first_date=excluded.first_date, report_url=excluded.report_url,
              detail=excluded.detail, rating_avg=excluded.rating_avg, rating_avg_all=excluded.rating_avg_all,
-             rating_routine=excluded.rating_routine, rating_worst=excluded.rating_worst, poor_frac=excluded.poor_frac, worst_points=excluded.worst_points, tract_id=excluded.tract_id, updated_at=excluded.updated_at,
+             rating_routine=excluded.rating_routine, rating_worst=excluded.rating_worst, poor_frac=excluded.poor_frac, worst_points=excluded.worst_points, tract_id=excluded.tract_id, mobile=excluded.mobile, updated_at=excluded.updated_at,
              -- track rating changes: when the rating actually moves, remember the prior value and
              -- stamp the change with the new inspection date (these RHS see the OLD row in SQLite,
              -- so this is evaluated before rating itself is overwritten on the next line)
@@ -522,7 +523,7 @@ export default {
           r.report_url ?? null, typeof r.detail === "string" ? r.detail : JSON.stringify(r.detail ?? {}),
           r.rating_avg ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history),
           r.rating_avg_all ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history, 99),
-          r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null,
+          r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null, r.mobile ? 1 : null,
           null, r.inspect_date ?? null, r.rating_svc ?? null, now, null, now
         )
       );

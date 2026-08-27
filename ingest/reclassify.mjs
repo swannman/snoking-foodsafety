@@ -18,7 +18,9 @@ const INGEST_TOKEN = cfg("INGEST_TOKEN", "");
 
 const j = await (await fetch(WORKER_URL + "/api/establishments")).json();
 const items = j.items || [];
-const updates = items.map((d) => ({ id: d.id, cuisine: cuisineOf(d.n) }));
+// mb = county-declared mobile unit: always "foodtruck" (set at ingest from the county's own
+// category field, which a name-based reclassify can't see) — skip so we don't clobber it
+const updates = items.filter((d) => !d.mb).map((d) => ({ id: d.id, cuisine: cuisineOf(d.n) }));
 const dist = {}; updates.forEach((u) => (dist[u.cuisine] = (dist[u.cuisine] || 0) + 1));
 console.log("cuisine distribution:");
 Object.entries(dist).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => console.log("  " + (CUISINE_LABELS[k] || k).padEnd(18), v));
