@@ -35,6 +35,27 @@ function ratingRoutineOf(h) { for (const x of h || []) if (isRoutine(x.svc)) { c
 function ratingWorstOf(h) { let w = null; for (const x of h || []) { const r = pointRating(x.score); if (r != null && (w == null || r > w)) w = r; } return w; }
 function poorFracOf(h) { const s = (h || []).filter((x) => isRoutine(x.svc) && pointRating(x.score) != null); return s.length ? Math.round((s.filter((x) => pointRating(x.score) >= 3).length / s.length) * 1000) / 1000 : null; }
 function worstPointsOf(h) { let w = null; for (const x of h || []) if (x.score != null && (w == null || x.score > w)) w = x.score; return w; }
+// "major" points — the food-hazard subset (mirrors majorPts/majorAvg in ingest.mjs): reds >=10 pts
+// minus the administrative items (01/02 PIC/cards, 26/27 permit/plans), plus blue 32 (pests).
+// Ported here so /recompute-avg can backfill major_pts from stored history — delisted rows never
+// appear in a crawl, so the ingester alone can never fill them.
+const MAJOR_ADMIN = new Set(["01", "02", "26", "27"]);
+const item2Of = (label) => { const m = /^\s*(\d{2,4})/.exec(String(label || "")); return m ? m[1].slice(0, 2).padStart(2, "0") : null; };
+function majorPtsOf(vlist) {
+  let s = 0;
+  for (const v of vlist || []) {
+    const it = item2Of(v.label); if (!it) continue;
+    if (it === "32") s += v.points ?? 5;
+    else if (v.type === "RED" && (v.points ?? 0) >= 10 && !MAJOR_ADMIN.has(it)) s += v.points;
+  }
+  return s;
+}
+function majorAvgOf(h) {   // last 4 routines; if none, most recent inspection of any type
+  const rts = (h || []).filter((x) => isRoutine(x.svc)).slice(0, 4);
+  const src = rts.length ? rts : (h || []).slice(0, 1);
+  const rs = src.map((x) => majorPtsOf(x.v));
+  return rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 10) / 10 : null;
+}
 
 // ── push notifications ────────────────────────────────────────────────────────
 async function sha256hex(s) {
@@ -651,8 +672,8 @@ export default {
         const now = new Date().toISOString();
         for (const row of results) {
           let h = []; try { h = JSON.parse(row.detail || "{}").history || []; } catch {}
-          stmts.push(env.DB.prepare("UPDATE establishments SET rating_avg=?, rating_avg_all=?, rating_routine=?, rating_worst=?, poor_frac=?, worst_points=?, updated_at=? WHERE id=?")
-            .bind(avgRating(h, 5), avgRating(h, 99), ratingRoutineOf(h) ?? row.rating, ratingWorstOf(h) ?? row.rating, poorFracOf(h), worstPointsOf(h), now, row.id));
+          stmts.push(env.DB.prepare("UPDATE establishments SET rating_avg=?, rating_avg_all=?, rating_routine=?, rating_worst=?, poor_frac=?, worst_points=?, major_pts=?, updated_at=? WHERE id=?")
+            .bind(avgRating(h, 5), avgRating(h, 99), ratingRoutineOf(h) ?? row.rating, ratingWorstOf(h) ?? row.rating, poorFracOf(h), worstPointsOf(h), majorAvgOf(h), now, row.id));
         }
         for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
         updated += results.length;
@@ -1099,7 +1120,7 @@ function renderLegend(){
   if(colorMode==="rating"||colorMode==="routine"){h='<h4>'+(colorMode==="routine"?"Last routine rating":"Rating")+'</h4>';[1,2,3,4,0].forEach(function(r){h+='<div class="lg"><span class="sw" style="background:'+COLOR[r]+'"></span>'+LABEL[r]+'</div>';});}
   else if(colorMode==="worstpts"){h='<h4>Worst inspection (points)</h4>';[[0,"0 — clean"],[15,"15"],[40,"40"],[80,"80"],[150,"150+ — extreme"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+wpColor({wp:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no inspections</div>';}
   else if(colorMode==="avg"){h='<h4>Avg of last 5 inspections</h4>';[[1,"Excellent"],[2,"Good"],[3,"Okay"],[4,"Needs improve"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+avgColor({ra:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no history</div>';}
-  else if(colorMode==="majpts"){h='<h4>Major violations only</h4>';[[0,"0 — none"],[5,"5"],[17.5,"17.5"],[51.25,"51+"],[90,"90+ — extreme"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+mjColor({mj:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no routine inspections</div>';h+='<div class="lg" style="margin-top:5px;font-size:10px;color:var(--muted)">avg pts/routine · temps, hygiene, source,<br>contamination + pests · no paperwork items</div>';}
+  else if(colorMode==="majpts"){h='<h4>Major violations only</h4>';[[0,"0 — none"],[5,"5"],[17.5,"17.5"],[51.25,"51+"],[90,"90+ — extreme"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+mjColor({mj:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no inspections</div>';h+='<div class="lg" style="margin-top:5px;font-size:10px;color:var(--muted)">avg pts/routine · temps, hygiene, source,<br>contamination + pests · no paperwork items</div>';}
   else if(colorMode==="poorfrac"){h='<h4>% routines Okay-or-worse</h4>';[[0,"0% — always clean"],[0.34,"~⅓ of routines"],[0.67,"~⅔ of routines"],[1,"100% — always poor"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+pfColor({pf:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no routine inspections</div>';}
   else if(colorMode==="age"){h='<h4>Years on record</h4>';AGE_PAL.forEach(function(c,i){h+='<div class="lg"><span class="sw" style="background:'+c+'"></span>'+AGE_LBL[i]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>unknown</div>';}
   else if(colorMode==="resid"){h='<h4>vs cuisine norm</h4>';[[1.3,"much better than peers"],[0.5,"better"],[0,"typical for its cuisine"],[-0.5,"worse"],[-1.3,"much worse than peers"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+residColorAt(p[0])+'"></span>'+p[1]+'</div>';});}
@@ -1158,7 +1179,7 @@ function buildMetrics(){
   avg:{label:"Avg of last 5",min:1,max:4,step:0.1,val:function(d){return d.ra;},fmt:function(a,b){return a.toFixed(1)+" – "+b.toFixed(1);},disp:function(d){return d.ra==null?"no history":LABEL[Math.max(1,Math.min(4,Math.round(d.ra)))]+" ("+d.ra.toFixed(1)+")";},buckets:rbk(function(r){return avgColor({ra:r});},false)},
   routine:{label:"Last routine rating",min:1,max:4,step:1,val:function(d){return d.rr;},fmt:function(a,b){return a===b?RLABELS[a]:RLABELS[a]+" – "+RLABELS[b];},disp:function(d){return d.rr==null?"no routine":LABEL[d.rr]+" (routine)";},buckets:rbk(function(r){return COLOR[r];},true)},
   worstpts:{label:"Worst inspection (pts)",min:0,max:WPMAX,step:5,val:function(d){return d.wp;},fmt:function(a,b){return a+" – "+(b>=WPMAX?b+"+":b)+" pts";},disp:function(d){return d.wp==null?"no inspections":d.wp+" pts worst";}},
-  majpts:{label:"Major violations (avg pts)",min:0,max:MJMAX,step:5,val:function(d){return d.mj;},fmt:function(a,b){return a+" – "+(b>=MJMAX?b+"+":b)+" pts";},disp:function(d){return d.mj==null?"no routine inspections":d.mj+" pts major avg";}},
+  majpts:{label:"Major violations (avg pts)",min:0,max:MJMAX,step:5,val:function(d){return d.mj;},fmt:function(a,b){return a+" – "+(b>=MJMAX?b+"+":b)+" pts";},disp:function(d){return d.mj==null?"no inspections":d.mj+" pts major avg";}},
   poorfrac:{label:"% routines Okay-or-worse",min:0,max:100,step:5,val:function(d){return d.pf==null?null:Math.round(d.pf*100);},fmt:function(a,b){return a+"% – "+b+"%";},disp:function(d){return d.pf==null?"no routine":Math.round(d.pf*100)+"% poor routines";}},
   age:{label:"Years in operation",min:0,max:maxAge,step:1,val:function(d){return ageOf(d);},fmt:function(a,b){return a+(b>=maxAge?" – "+b+"+":" – "+b)+" yr";},disp:function(d){var a=ageOf(d);return a==null?"age unknown":a+"y on record";}},
   // residual is signed: POSITIVE = better than the cuisine's mean. hiWorse:false flips the list sort.

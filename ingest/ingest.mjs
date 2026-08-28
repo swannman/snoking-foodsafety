@@ -102,7 +102,11 @@ function majorPts(vlist) {
   return s;
 }
 function majorAvg(history) {         // avg major points over the last 4 ROUTINE inspections (mirrors the rating window)
-  const rs = (history || []).filter((h) => isRoutine(h.svc)).slice(0, 4).map((h) => majorPts(h.v));
+  const rts = (history || []).filter((h) => isRoutine(h.svc)).slice(0, 4);
+  // no routines on record (reinspection-only history, or a row frozen mid-cycle): fall back to the
+  // most recent inspection of any type — a stale-ish value beats a gray "no data" dot
+  const src = rts.length ? rts : (history || []).slice(0, 1);
+  const rs = src.map((h) => majorPts(h.v));
   return rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 10) / 10 : null;
 }
 function worstPoints(history) {      // highest single-inspection score on record (raw points)
