@@ -978,7 +978,7 @@ const MAP_HTML = String.raw`<!doctype html>
         <select id="cuisine"><option value="">All cuisines</option></select>
       </div>
       <div class="field">
-        <label>Shade by <span class="vals" id="emojihint" style="font-weight:400;color:var(--muted)"></span></label>
+        <label>Shade by</label>
         <select id="colorby">
           <option value="rating">Rating (latest)</option>
           <option value="resid">vs cuisine norm (over/under-performers)</option>
@@ -1281,7 +1281,6 @@ function render(){
 // per LOCATION; coincident establishments share it (count badge + list popup).
 function drawMarkers(idx){
   var useEmoji=emojiMode&&map.getZoom()>=EMOJI_ZOOM;
-  updateEmojiHint();
   if(useEmoji){
     layer.clearLayers();
     if(!map.hasLayer(emojiLayer))emojiLayer.addTo(map);
@@ -1305,7 +1304,6 @@ function emojiIcon(loc){var vm=loc._vm,rp=reprOf(vm),col=colorOf(rp),em=colorMod
     html:'<div style="position:relative;width:26px;height:26px;margin:6px"><div style="width:26px;height:26px;border-radius:50%;background:'+col+';display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);font-size:15px;line-height:1">'+em+'</div>'+badge+'</div>'});}
 function emojiMarker(loc){var m=L.marker([loc.la,loc.lo],{icon:emojiIcon(loc),keyboard:false});
   m.on("click",function(){openLocPopup(loc);});return m;}
-function updateEmojiHint(){var el=document.getElementById("emojihint");if(el)el.textContent=(emojiMode&&map.getZoom()<EMOJI_ZOOM)?"— zoom in for emoji ↗":"";}
 function renderList(){
   var b=map.getBounds(),vis=curVisEst.filter(function(d){return b.contains([d.la,d.lo]);});   // only what's in view
   if(sortMode==="near"&&!mePos)sortMode="alpha";   // "near" without a location fix (restored state) — fall back
