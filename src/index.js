@@ -107,17 +107,18 @@ function cachePut(req, ctx, resp) {
 // that D1 scan at once → contention → 504s. So the ingester prebuilds these payloads into
 // KV once per refresh, and the hot path serves straight from KV (no D1 scan). Bump SNAP_VER
 // whenever the item shape below changes — the new key misses, so the handler rebuilds from D1.
-const SNAP_VER = "2";   // v2: added mb (county-declared mobile unit)
+const SNAP_VER = "3";   // v2: added mb (county-declared mobile unit); v3: added mj (avg major points)
 const SNAP_EST = "snap:establishments:" + SNAP_VER, SNAP_PTS = "snap:points:" + SNAP_VER;
 async function buildEstablishments(env) {
   const { results } = await env.DB.prepare(
-    `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at,mobile
+    `SELECT id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_avg,rating_routine,rating_worst,poor_frac,worst_points,major_pts,grade,score,result,inspect_date,first_date,prev_rating,rating_changed_at,change_svc,delisted_at,mobile
      FROM establishments WHERE lat IS NOT NULL AND lon IS NOT NULL`
   ).all();
   const items = (results || []).map((r) => ({
     id: r.id, co: r.county === "king" ? "k" : "s", n: r.name, a: r.address, ci: r.city, z: r.zip,
     la: r.lat, lo: r.lon, cu: r.cuisine, r: r.rating, ra: r.rating_avg, rr: r.rating_routine, rw: r.rating_worst, pf: r.poor_frac, wp: r.worst_points,
     g: r.grade, s: r.score, rs: r.result, d: r.inspect_date, fd: r.first_date, pr: r.prev_rating, cd: r.rating_changed_at, cs: r.change_svc,
+    ...(r.major_pts != null ? { mj: r.major_pts } : {}),   // 0 is meaningful (clean routines) — only null is absent
     ...(r.delisted_at ? { dl: r.delisted_at } : {}),
     ...(r.mobile ? { mb: 1 } : {}),
   }));
@@ -498,15 +499,15 @@ export default {
       const stmts = batch.map((r) =>
         env.DB.prepare(
           `INSERT INTO establishments
-             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,tract_id,mobile,prev_rating,rating_changed_at,change_svc,change_detected_at,notified_at,updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             (id,county,name,address,city,zip,lat,lon,cuisine,rating,rating_label,grade,score,result,inspect_date,first_date,report_url,detail,rating_avg,rating_avg_all,rating_routine,rating_worst,poor_frac,worst_points,major_pts,tract_id,mobile,prev_rating,rating_changed_at,change_svc,change_detected_at,notified_at,updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(id) DO UPDATE SET
              county=excluded.county, name=excluded.name, address=excluded.address, city=excluded.city,
              zip=excluded.zip, lat=excluded.lat, lon=excluded.lon, cuisine=excluded.cuisine,
              rating_label=excluded.rating_label, grade=excluded.grade, score=excluded.score, result=excluded.result,
              inspect_date=excluded.inspect_date, first_date=excluded.first_date, report_url=excluded.report_url,
              detail=excluded.detail, rating_avg=excluded.rating_avg, rating_avg_all=excluded.rating_avg_all,
-             rating_routine=excluded.rating_routine, rating_worst=excluded.rating_worst, poor_frac=excluded.poor_frac, worst_points=excluded.worst_points, tract_id=excluded.tract_id, mobile=excluded.mobile, updated_at=excluded.updated_at,
+             rating_routine=excluded.rating_routine, rating_worst=excluded.rating_worst, poor_frac=excluded.poor_frac, worst_points=excluded.worst_points, major_pts=excluded.major_pts, tract_id=excluded.tract_id, mobile=excluded.mobile, updated_at=excluded.updated_at,
              -- track rating changes: when the rating actually moves, remember the prior value and
              -- stamp the change with the new inspection date (these RHS see the OLD row in SQLite,
              -- so this is evaluated before rating itself is overwritten on the next line)
@@ -523,7 +524,7 @@ export default {
           r.report_url ?? null, typeof r.detail === "string" ? r.detail : JSON.stringify(r.detail ?? {}),
           r.rating_avg ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history),
           r.rating_avg_all ?? avgRating((typeof r.detail === "object" ? r.detail : {}).history, 99),
-          r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.tract_id ?? null, r.mobile ? 1 : null,
+          r.rating_routine ?? r.rating ?? null, r.rating_worst ?? r.rating ?? null, r.poor_frac ?? null, r.worst_points ?? null, r.major_pts ?? null, r.tract_id ?? null, r.mobile ? 1 : null,
           null, r.inspect_date ?? null, r.rating_svc ?? null, now, null, now
         )
       );
@@ -985,10 +986,10 @@ const MAP_HTML = String.raw`<!doctype html>
           <option value="routine">Last routine (ignores reinspections)</option>
           <option value="avg">Avg of last 5 inspections</option>
           <option value="worstpts">Worst inspection (points)</option>
+          <option value="majpts">Major violations only</option>
           <option value="poorfrac">% routines Okay-or-worse (chronic)</option>
           <option value="changed">Recently changed (new + up/down)</option>
           <option value="age">Years in operation</option>
-          <option value="cuisine">Cuisine</option>
         </select>
       </div>
       <div class="field" id="rfield">
@@ -1052,6 +1053,14 @@ function pfColor(d){var v=d.pf;if(v==null)return"#555";v=Math.max(0,Math.min(1,v
   for(var i=0;i<PF_STOPS.length-1;i++){var a=PF_STOPS[i],b=PF_STOPS[i+1];if(v<=b[0]){var t=(v-a[0])/((b[0]-a[0])||1);
     return"rgb("+Math.round(a[1][0]+(b[1][0]-a[1][0])*t)+","+Math.round(a[1][1]+(b[1][1]-a[1][1])*t)+","+Math.round(a[1][2]+(b[1][2]-a[1][2])*t)+")";}}
   return"rgb(229,72,77)";}
+// avg MAJOR points per routine (hazard reds + pests, no paperwork) — stops anchored to the King
+// grade cutoffs (5 / 17.5 / 51.25 avg-critical-points), so green/yellow/orange/red here means
+// roughly what Excellent/Good/Okay/Needs-to-Improve mean on the rating views
+var MJ_STOPS=[[0,[46,204,113]],[5,[168,200,0]],[17.5,[240,160,32]],[51.25,[229,72,77]],[90,[110,0,0]]];
+function mjColor(d){var v=d.mj;if(v==null)return"#555";v=Math.max(0,v);
+  for(var i=0;i<MJ_STOPS.length-1;i++){var a=MJ_STOPS[i],b=MJ_STOPS[i+1];if(v<=b[0]){var t=(v-a[0])/((b[0]-a[0])||1);
+    return"rgb("+Math.round(a[1][0]+(b[1][0]-a[1][0])*t)+","+Math.round(a[1][1]+(b[1][1]-a[1][1])*t)+","+Math.round(a[1][2]+(b[1][2]-a[1][2])*t)+")";}}
+  return"rgb(110,0,0)";}
 // worst single-inspection POINTS — continuous, wide range (0 → green … 150+ → near-black red)
 var WP_STOPS=[[0,[46,204,113]],[15,[168,200,0]],[40,[240,160,32]],[80,[229,72,77]],[150,[110,0,0]]];
 function wpColor(d){var v=d.wp;if(v==null)return"#555";v=Math.max(0,v);
@@ -1084,12 +1093,13 @@ function svcLabel(cs){return cs==="routine"?"routine":cs==="reinspection"?"reins
 function changeText(d){var k=changeKind(d),sv=svcLabel(d.cs),w=agoTxt(d.cd),tail=(sv?" · "+sv:"")+(w?" · "+w:"");if(k==="new")return"New · "+LABEL[ratingOf(d)]+tail;if(k==="up")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↑"+tail;if(k==="down")return LABEL[d.pr]+" → "+LABEL[d.r]+" ↓"+tail;return"changed"+tail;}
 function colorOf(d){if(colorMode==="cuisine")return CU_COLOR[cuGroup(d.cu)]||"#555";if(colorMode==="age")return ageColor(d);if(colorMode==="avg")return avgColor(d);
   if(colorMode==="changed")return changeColor(d);
-  if(colorMode==="routine")return COLOR[d.rr==null?0:d.rr];if(colorMode==="worstpts")return wpColor(d);if(colorMode==="poorfrac")return pfColor(d);if(colorMode==="resid")return residColor(d);return COLOR[ratingOf(d)];}
+  if(colorMode==="routine")return COLOR[d.rr==null?0:d.rr];if(colorMode==="worstpts")return wpColor(d);if(colorMode==="majpts")return mjColor(d);if(colorMode==="poorfrac")return pfColor(d);if(colorMode==="resid")return residColor(d);return COLOR[ratingOf(d)];}
 function renderLegend(){
   var el=document.getElementById("legend"),h="";
   if(colorMode==="rating"||colorMode==="routine"){h='<h4>'+(colorMode==="routine"?"Last routine rating":"Rating")+'</h4>';[1,2,3,4,0].forEach(function(r){h+='<div class="lg"><span class="sw" style="background:'+COLOR[r]+'"></span>'+LABEL[r]+'</div>';});}
   else if(colorMode==="worstpts"){h='<h4>Worst inspection (points)</h4>';[[0,"0 — clean"],[15,"15"],[40,"40"],[80,"80"],[150,"150+ — extreme"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+wpColor({wp:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no inspections</div>';}
   else if(colorMode==="avg"){h='<h4>Avg of last 5 inspections</h4>';[[1,"Excellent"],[2,"Good"],[3,"Okay"],[4,"Needs improve"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+avgColor({ra:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no history</div>';}
+  else if(colorMode==="majpts"){h='<h4>Major violations only</h4>';[[0,"0 — none"],[5,"5"],[17.5,"17.5"],[51.25,"51+"],[90,"90+ — extreme"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+mjColor({mj:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no routine inspections</div>';h+='<div class="lg" style="margin-top:5px;font-size:10px;color:var(--muted)">avg pts/routine · temps, hygiene, source,<br>contamination + pests · no paperwork items</div>';}
   else if(colorMode==="poorfrac"){h='<h4>% routines Okay-or-worse</h4>';[[0,"0% — always clean"],[0.34,"~⅓ of routines"],[0.67,"~⅔ of routines"],[1,"100% — always poor"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+pfColor({pf:p[0]})+'"></span>'+p[1]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>no routine inspections</div>';}
   else if(colorMode==="age"){h='<h4>Years on record</h4>';AGE_PAL.forEach(function(c,i){h+='<div class="lg"><span class="sw" style="background:'+c+'"></span>'+AGE_LBL[i]+'</div>';});h+='<div class="lg"><span class="sw" style="background:#555"></span>unknown</div>';}
   else if(colorMode==="resid"){h='<h4>vs cuisine norm</h4>';[[1.3,"much better than peers"],[0.5,"better"],[0,"typical for its cuisine"],[-0.5,"worse"],[-1.3,"much worse than peers"]].forEach(function(p){h+='<div class="lg"><span class="sw" style="background:'+residColorAt(p[0])+'"></span>'+p[1]+'</div>';});}
@@ -1120,7 +1130,7 @@ L.CircleMarker.prototype._clickTolerance=function(){return (this.options.stroke?
 var layer=L.layerGroup().addTo(map);
 var emojiLayer=L.layerGroup(), emojiMode=true, EMOJI_ZOOM=15, lastVis=[], popupOpen=false;
 
-var ALL=[], LOC=[], MARK=[], maxAge=20, WPMAX=150;   // LOC = establishments clustered by ~proximity
+var ALL=[], LOC=[], MARK=[], maxAge=20, WPMAX=150, MJMAX=60;   // LOC = establishments clustered by ~proximity
 var fCuisine="", coOn={k:1,s:1}, query="", queryToks=[];
 // search is token-based (all tokens must match anywhere) so a pasted full address like
 // "18437 E Valley Hwy, Kent, WA 98032" works — commas/state/zip don't need to be contiguous
@@ -1148,6 +1158,7 @@ function buildMetrics(){
   avg:{label:"Avg of last 5",min:1,max:4,step:0.1,val:function(d){return d.ra;},fmt:function(a,b){return a.toFixed(1)+" – "+b.toFixed(1);},disp:function(d){return d.ra==null?"no history":LABEL[Math.max(1,Math.min(4,Math.round(d.ra)))]+" ("+d.ra.toFixed(1)+")";},buckets:rbk(function(r){return avgColor({ra:r});},false)},
   routine:{label:"Last routine rating",min:1,max:4,step:1,val:function(d){return d.rr;},fmt:function(a,b){return a===b?RLABELS[a]:RLABELS[a]+" – "+RLABELS[b];},disp:function(d){return d.rr==null?"no routine":LABEL[d.rr]+" (routine)";},buckets:rbk(function(r){return COLOR[r];},true)},
   worstpts:{label:"Worst inspection (pts)",min:0,max:WPMAX,step:5,val:function(d){return d.wp;},fmt:function(a,b){return a+" – "+(b>=WPMAX?b+"+":b)+" pts";},disp:function(d){return d.wp==null?"no inspections":d.wp+" pts worst";}},
+  majpts:{label:"Major violations (avg pts)",min:0,max:MJMAX,step:5,val:function(d){return d.mj;},fmt:function(a,b){return a+" – "+(b>=MJMAX?b+"+":b)+" pts";},disp:function(d){return d.mj==null?"no routine inspections":d.mj+" pts major avg";}},
   poorfrac:{label:"% routines Okay-or-worse",min:0,max:100,step:5,val:function(d){return d.pf==null?null:Math.round(d.pf*100);},fmt:function(a,b){return a+"% – "+b+"%";},disp:function(d){return d.pf==null?"no routine":Math.round(d.pf*100)+"% poor routines";}},
   age:{label:"Years in operation",min:0,max:maxAge,step:1,val:function(d){return ageOf(d);},fmt:function(a,b){return a+(b>=maxAge?" – "+b+"+":" – "+b)+" yr";},disp:function(d){var a=ageOf(d);return a==null?"age unknown":a+"y on record";}},
   // residual is signed: POSITIVE = better than the cuisine's mean. hiWorse:false flips the list sort.
@@ -1195,6 +1206,7 @@ function saveView(){try{sessionStorage.setItem("snoking_view",JSON.stringify({
   cu:document.getElementById("cuisine").value,cm:colorMode,sm:sortMode,fr:fRange,ch:chipSel,q:query,t:Date.now()}));}catch(e){}}
 function restoreView(rv){
   // shade-by first (applyMetric rebuilds the range slider + resets fRange to the metric default)
+  if(rv.cm==="cuisine")rv.cm="rating";   // the cuisine shade view was removed — saved states fall back
   if(rv.cm){var cb=document.getElementById("colorby");if(cb)cb.value=rv.cm;colorMode=rv.cm;}
   applyMetric(colorMode);
   // re-apply the saved filter over the freshly-rebuilt control (slider range, or chip selection)
@@ -1480,12 +1492,13 @@ function openLocPopup(loc,focusD,mode){
 // ── load ──────────────────────────────────────────────────────────────────────
 fetch("/api/establishments?v="+DATA_VERSION).then(function(r){return r.json();}).then(function(j){
   ALL=j.items||[];
-  var ages=[],wps=[],counts={k:0,s:0},cu={},csum={},cn={};
-  ALL.forEach(function(d){counts[d.co]++;cu[d.cu]=(cu[d.cu]||0)+1;var a=ageOf(d);if(a!=null)ages.push(a);if(d.wp!=null)wps.push(d.wp);
+  var ages=[],wps=[],mjs=[],counts={k:0,s:0},cu={},csum={},cn={};
+  ALL.forEach(function(d){counts[d.co]++;cu[d.cu]=(cu[d.cu]||0)+1;var a=ageOf(d);if(a!=null)ages.push(a);if(d.wp!=null)wps.push(d.wp);if(d.mj!=null)mjs.push(d.mj);
     var base=d.ra!=null?d.ra:(d.r==null?null:d.r);if(base!=null){csum[d.cu]=(csum[d.cu]||0)+base;cn[d.cu]=(cn[d.cu]||0)+1;}});   // per-FINE-cuisine mean for the residual
   CUMEAN={};for(var ck in csum)if(cn[ck]>=8)CUMEAN[ck]=csum[ck]/cn[ck];   // need a few peers for a meaningful norm
   maxAge=Math.min(40,Math.max.apply(0,ages.concat(20)));
   WPMAX=Math.ceil(Math.max.apply(0,wps.concat(100))/10)*10;
+  MJMAX=Math.ceil(Math.max.apply(0,mjs.concat(60))/10)*10;
   buildMetrics();
   // markers
   // cluster establishments at (nearly) the same point — within ~12 m — into one marker, so

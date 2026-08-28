@@ -115,6 +115,9 @@ async function callTool(env, name, a) {
     return {
       ...rowOut(row),
       zip: row.zip, first_seen: row.first_date,
+      // avg points per recent routine from food-hazard violations only (temps/hygiene/source/contamination
+      // >=10-pt reds + pests) — excludes administrative items like permits and worker cards
+      avg_major_violation_points: row.major_pts,
       rating_most_recent_routine: row.rating_routine, rating_worst_ever: row.rating_worst,
       pct_routine_inspections_okay_or_worse: row.poor_frac != null ? Math.round(row.poor_frac * 100) : null,
       county_report_url: row.report_url,

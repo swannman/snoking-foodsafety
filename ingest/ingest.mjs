@@ -22,7 +22,7 @@ import { cuisineOf } from "./cuisine.mjs";
 import { snapCuisine } from "./snapshot-cuisine.mjs";
 import { blooperTag, blooperText, redactName } from "./bloopers.mjs";
 import { loadTagger } from "./regions.mjs";
-import { buildKingRubric, ratingKingStyle, tagViols, riskN } from "./king-rubric.mjs";
+import { buildKingRubric, ratingKingStyle, tagViols, riskN, item2 } from "./king-rubric.mjs";
 let tagTract = () => null;
 try { tagTract = loadTagger(); } catch (e) { console.log("tract tagger disabled:", e.message); }
 
@@ -84,6 +84,26 @@ function ratingWorst(history) {     // worst (highest) rating across all stored 
 function poorFrac(history) {         // share of ROUTINE inspections rated Okay-or-worse (>=3); 0..1
   const s = (history || []).filter((h) => isRoutine(h.svc) && pointRating(h.score) != null);
   return s.length ? Math.round((s.filter((h) => pointRating(h.score) >= 3).length / s.length) * 1000) / 1000 : null;
+}
+// "Major violations": the food-hazard subset. IN: red items worth >=10 pts, minus the paperwork
+// reds — 01/02 (PIC/worker cards) and 26/27 (permit/plan compliance; 42% of 2600 citations have no
+// hazard red on the same visit, i.e. purely administrative). PLUS blue item 32 (pests), promoted
+// because "mice" is major to a diner even though the state files it under good-retail-practices.
+// Works for both counties: King violations carry native type/points, Snohomish's are stamped from
+// the King rubric by tagViols, and item2() reads the WA item number off either label format.
+const MAJOR_ADMIN = new Set(["01", "02", "26", "27"]);
+function majorPts(vlist) {
+  let s = 0;
+  for (const v of vlist || []) {
+    const it = item2(v.label); if (!it) continue;
+    if (it === "32") s += v.points ?? 5;
+    else if (v.type === "RED" && (v.points ?? 0) >= 10 && !MAJOR_ADMIN.has(it)) s += v.points;
+  }
+  return s;
+}
+function majorAvg(history) {         // avg major points over the last 4 ROUTINE inspections (mirrors the rating window)
+  const rs = (history || []).filter((h) => isRoutine(h.svc)).slice(0, 4).map((h) => majorPts(h.v));
+  return rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 10) / 10 : null;
 }
 function worstPoints(history) {      // highest single-inspection score on record (raw points)
   let w = null;
@@ -231,6 +251,7 @@ async function king() {
       report_url: "https://kingcounty.gov/en/dept/dph/health-safety/food-safety/search-restaurant-safety-ratings",
       rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
       rating_routine: ratingRoutine(mh) ?? rating, rating_worst: ratingWorst(mh) ?? rating, poor_frac: poorFrac(mh), worst_points: worstPoints(mh),
+      major_pts: majorAvg(history),
       tract_id: tagTract(lon, lat),
       mobile: mobile || undefined,
       detail: { violations: latestViol, history },
@@ -317,7 +338,7 @@ function mergePrograms(list) {
     rep.first_date = g.reduce((m, r) => (r.first_date && (!m || r.first_date < m) ? r.first_date : m), rep.first_date);
     rep.rating_avg = avgRating(hist); rep.rating_avg_all = avgRating(hist, 99);
     rep.rating_routine = ratingRoutine(hist) ?? rep.rating; rep.rating_worst = ratingWorst(hist) ?? rep.rating;
-    rep.poor_frac = poorFrac(hist); rep.worst_points = worstPoints(hist);
+    rep.poor_frac = poorFrac(hist); rep.worst_points = worstPoints(hist); rep.major_pts = majorAvg(hist);
     rep.detail = { violations: (g[0].detail && g[0].detail.violations) || [], history: hist };
     out.push(rep);
   }
@@ -423,6 +444,7 @@ async function snohomish() {
         (progCache[f.FacilityId]?.programId ? "/" + progCache[f.FacilityId].programId : ""),
       rating_avg: ravg, rating_avg_all: avgRating(mh, 99),
       rating_routine: ratingRoutine(mh) ?? rating, rating_worst: ratingWorst(mh) ?? rating, poor_frac: poorFrac(mh), worst_points: worstPoints(mh),
+      major_pts: majorAvg(history),
       mobile: /MOBILE FOOD/i.test(category || "") || undefined,   // "MOBILE FOOD VEHICLE - <risk>"
       detail: { violations, history, category },
     });
