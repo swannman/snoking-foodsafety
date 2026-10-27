@@ -14,6 +14,11 @@ concurrency:
   group: ingest
   cancel-in-progress: false
 
+# actions: write lets the keepalive step below re-enable this workflow
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
@@ -54,3 +59,10 @@ jobs:
         if: success()
         working-directory: ingest
         run: node indexnow-submit.mjs || echo " (indexnow failed, non-fatal)"
+      # GitHub disables scheduled workflows after 60 days without a push. Re-enabling
+      # via the API resets that timer, so the daily refresh keeps running on a quiet repo.
+      - name: Keep scheduled workflow enabled
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable ingest.yml --repo "${{ github.repository }}"
